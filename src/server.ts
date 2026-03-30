@@ -26,7 +26,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/docs", "/api/keys", "/api/webhooks", "/docs/playground"];
+const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/docs/playground"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -135,8 +135,47 @@ async function start() {
     routePrefix: "/docs/playground",
   });
 
-  // Health check
+  // Health check (simple)
   app.get("/health", { schema: { hide: true } }, async () => ({ status: "ok" }));
+
+  // Status page (detailed operational info)
+  const startedAt = new Date();
+  app.get("/status", { schema: { hide: true } }, async () => {
+    const uptimeMs = Date.now() - startedAt.getTime();
+    const uptimeSec = Math.floor(uptimeMs / 1000);
+    const days = Math.floor(uptimeSec / 86400);
+    const hours = Math.floor((uptimeSec % 86400) / 3600);
+    const minutes = Math.floor((uptimeSec % 3600) / 60);
+
+    let dbStatus = "not_configured";
+    const prismaClient = getPrisma();
+    if (prismaClient) {
+      try {
+        await prismaClient.$queryRaw`SELECT 1`;
+        dbStatus = "connected";
+      } catch {
+        dbStatus = "error";
+      }
+    }
+
+    return {
+      status: "operational",
+      version: "1.1.0",
+      uptime: `${days}d ${hours}h ${minutes}m`,
+      uptime_seconds: uptimeSec,
+      started_at: startedAt.toISOString(),
+      database: dbStatus,
+      endpoints: {
+        validate: "/v1/datetime/validate",
+        resolve: "/v1/datetime/resolve",
+        convert: "/v1/datetime/convert",
+        batch: "/v1/datetime/batch",
+      },
+      documentation: "/docs",
+      playground: "/docs/playground",
+      changelog: "https://github.com/Mike-Mait/ChronoGuard/blob/master/CHANGELOG.md",
+    };
+  });
 
   // Custom docs page
   app.get("/docs", { schema: { hide: true } }, async (_request, reply) => {

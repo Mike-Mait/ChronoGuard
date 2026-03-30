@@ -425,7 +425,7 @@ When you exceed your limit, requests return `429 Too Many Requests`.
 ### TypeScript / JavaScript
 
 ```typescript
-import { ChronoGuardClient } from "chronoguard-sdk";
+import { ChronoGuardClient } from "chronoguard";
 
 const client = new ChronoGuardClient({
   baseUrl: "https://chronoguard-api-production.up.railway.app",
