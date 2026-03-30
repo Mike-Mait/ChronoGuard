@@ -68,6 +68,7 @@
     <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
       <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Getting Started</p>
       <a href="#overview" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Overview</a>
+      <a href="#scenarios" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Real-World Scenarios</a>
       <a href="#quick-start" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Quick Start</a>
       <a href="#authentication" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Authentication</a>
 
@@ -97,6 +98,91 @@
         <div class="mt-6 inline-flex items-center gap-3 text-xs">
           <span class="px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 font-mono">Base URL</span>
           <code class="text-brand-300">https://chronoguard-api-production.up.railway.app</code>
+        </div>
+
+        <div class="mt-10 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+          <h3 class="text-sm font-bold text-white mb-3">When should I use ChronoGuard?</h3>
+          <p class="text-sm text-slate-400 mb-4">Use it whenever your application accepts, stores, or acts on local datetimes in any timezone. Specifically:</p>
+          <div class="grid sm:grid-cols-2 gap-3 text-sm">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">Scheduling systems</strong> &mdash; validate user-picked times before storing</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">Cron/workflow automation</strong> &mdash; ensure jobs don't skip or double-fire during DST</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">Billing &amp; payments</strong> &mdash; process charges at the correct local time</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">AI agents</strong> &mdash; give your agent a tool to validate times before booking</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">Calendar integrations</strong> &mdash; convert between timezones with correct offsets</span>
+            </div>
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="text-slate-400"><strong class="text-white">Booking platforms</strong> &mdash; prevent reservations at non-existent times</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REAL-WORLD SCENARIOS -->
+      <section id="scenarios" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Real-World Scenarios</h2>
+        <p class="text-sm text-slate-400 mb-6">These are the exact situations where timezone bugs happen in production. Here's how ChronoGuard prevents each one.</p>
+
+        <!-- Scenario 1 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <h3 class="text-sm font-bold text-white mb-1">Scenario 1: Scheduling a meeting during a DST gap</h3>
+          <p class="text-xs text-slate-500 mb-4">A user in New York picks March 8, 2026 at 2:30 AM for a standup. That time will never exist &mdash; clocks jump from 2:00 AM to 3:00 AM.</p>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">Without ChronoGuard</div>
+              <p class="text-xs text-slate-500">Your app stores <code class="text-xs">2:30 AM</code>. The calendar event either fires at 3:30 AM (wrong) or not at all (worse). No error is raised.</p>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">With ChronoGuard</div>
+              <p class="text-xs text-slate-500">Call <code class="text-xs text-brand-300">/validate</code> &rarr; get <code class="text-xs text-red-300">status: "invalid"</code> + <code class="text-xs text-emerald-300">suggested_fixes: ["3:00 AM"]</code>. Show the user: "That time doesn't exist. Use 3:00 AM instead?"</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scenario 2 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <h3 class="text-sm font-bold text-white mb-1">Scenario 2: Cron job during a fall-back overlap</h3>
+          <p class="text-xs text-slate-500 mb-4">A billing job runs at 1:30 AM on November 1, 2026 in New York. Clocks fall back, so 1:30 AM happens twice &mdash; once at UTC-4 and again at UTC-5.</p>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">Without ChronoGuard</div>
+              <p class="text-xs text-slate-500">The job runs twice (charging customers double), or the system silently picks one offset and processes at the wrong moment.</p>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">With ChronoGuard</div>
+              <p class="text-xs text-slate-500">Call <code class="text-xs text-brand-300">/resolve</code> with <code class="text-xs text-amber-300">ambiguous: "earlier"</code> &rarr; get a single deterministic UTC instant. Job runs exactly once.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scenario 3 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+          <h3 class="text-sm font-bold text-white mb-1">Scenario 3: AI agent booking a flight</h3>
+          <p class="text-xs text-slate-500 mb-4">An AI assistant is asked: "Book me a 2:30 AM departure from JFK on March 8." The agent needs to convert this to UTC for the airline API.</p>
+          <div class="grid sm:grid-cols-2 gap-3">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-2">Without ChronoGuard</div>
+              <p class="text-xs text-slate-500">The agent converts naively, gets the wrong UTC time, and books a flight that departs at the wrong hour. The user misses their flight.</p>
+            </div>
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">With ChronoGuard</div>
+              <p class="text-xs text-slate-500">Agent calls <code class="text-xs text-brand-300">validate_local_datetime</code> tool &rarr; sees <code class="text-xs text-red-300">DST_GAP</code> &rarr; tells user "That time doesn't exist, the next available time is 3:00 AM. Should I use that?"</p>
+            </div>
+          </div>
         </div>
       </section>
 

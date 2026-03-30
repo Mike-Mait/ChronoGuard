@@ -34,6 +34,15 @@ export function lookupKey(apiKey: string) {
   return keyStore.get(email) || null;
 }
 
+export function incrementUsage(apiKey: string) {
+  const email = keyIndex.get(apiKey);
+  if (!email) return;
+  const entry = keyStore.get(email);
+  if (entry) {
+    entry.requestsUsed++;
+  }
+}
+
 export function upgradeToProByEmail(email: string, stripeCustomerId: string) {
   const entry = keyStore.get(email);
   if (entry) {

@@ -96,30 +96,124 @@
     </div>
   </section>
 
+  <!-- ─── THE PROBLEM ─── -->
+  <section class="max-w-4xl mx-auto px-6 pt-20 pb-10">
+    <h2 class="text-2xl font-bold text-center mb-2">Timezone bugs are silent and expensive</h2>
+    <p class="text-slate-400 text-center mb-10 text-sm max-w-2xl mx-auto">Every timezone library can convert times. None of them tell you when a local time <em>doesn't exist</em> or <em>happens twice</em>. That's where the bugs hide.</p>
+    <div class="grid sm:grid-cols-3 gap-5">
+      <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+        <div class="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">DST Gap</div>
+        <p class="text-sm text-slate-300 leading-relaxed mb-3">User books a meeting at <code class="text-red-300 bg-red-500/10 px-1 rounded">2:30 AM</code> on spring-forward day. That time doesn't exist. Your app stores it anyway.</p>
+        <p class="text-xs text-slate-500">Result: meeting fires at the wrong time or not at all.</p>
+      </div>
+      <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
+        <div class="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">DST Overlap</div>
+        <p class="text-sm text-slate-300 leading-relaxed mb-3">User picks <code class="text-amber-300 bg-amber-500/10 px-1 rounded">1:30 AM</code> on fall-back day. That time happens <strong>twice</strong>. Your app silently picks one.</p>
+        <p class="text-xs text-slate-500">Result: payment processes an hour early, or a cron job runs twice.</p>
+      </div>
+      <div class="rounded-xl border border-brand-500/20 bg-brand-500/5 p-5">
+        <div class="text-brand-400 text-xs font-bold uppercase tracking-wider mb-2">Silent Offset</div>
+        <p class="text-sm text-slate-300 leading-relaxed mb-3">Naive UTC conversion picks <code class="text-brand-300 bg-brand-500/10 px-1 rounded">-05:00</code> when it should be <code class="text-brand-300 bg-brand-500/10 px-1 rounded">-04:00</code>. No error. Just wrong.</p>
+        <p class="text-xs text-slate-500">Result: every scheduled task is off by one hour, twice a year.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- ─── FEATURES ─── -->
-  <section class="max-w-5xl mx-auto px-6 py-20">
+  <section class="max-w-5xl mx-auto px-6 py-10">
+    <h2 class="text-2xl font-bold text-center mb-2">ChronoGuard catches what others miss</h2>
+    <p class="text-slate-400 text-center mb-10 text-sm">Three endpoints. Explicit handling. Zero ambiguity.</p>
     <div class="grid sm:grid-cols-3 gap-6">
       <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
         <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-4">
           <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
-        <h3 class="font-semibold text-white mb-1">DST Gap Detection</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Catches invalid times that don't exist during spring-forward transitions. Returns the next valid time automatically.</p>
+        <h3 class="font-semibold text-white mb-1">Validate</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">Is this time valid, invalid (DST gap), or ambiguous (DST overlap)? Get an explicit answer with suggested fixes.</p>
       </div>
       <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
         <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
           <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
         </div>
-        <h3 class="font-semibold text-white mb-1">Overlap Resolution</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Detects ambiguous fall-back times and resolves them with your preferred policy &mdash; earlier, later, or reject.</p>
+        <h3 class="font-semibold text-white mb-1">Resolve</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">Get a deterministic UTC instant from any local time. You choose the policy: <code class="text-xs text-amber-300">earlier</code>, <code class="text-xs text-amber-300">later</code>, or <code class="text-xs text-amber-300">reject</code>.</p>
       </div>
       <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
         <div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4">
           <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
         </div>
-        <h3 class="font-semibold text-white mb-1">&lt; 50ms p95 Latency</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Pure computation with cached timezone lookups. No external I/O in the request path. Boringly fast.</p>
+        <h3 class="font-semibold text-white mb-1">Convert</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">UTC to local, any timezone. Always unambiguous, always correct. Sub-50ms p95 latency.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- ─── WHO NEEDS THIS ─── -->
+  <section class="max-w-4xl mx-auto px-6 py-16">
+    <h2 class="text-2xl font-bold text-center mb-2">Built for systems where time matters</h2>
+    <p class="text-slate-400 text-center mb-10 text-sm">If your app schedules, bills, or automates anything across timezones, you need this.</p>
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+        <span class="text-brand-400 text-lg mt-0.5">&#128197;</span>
+        <div>
+          <h4 class="font-medium text-white text-sm">Scheduling &amp; Calendar Apps</h4>
+          <p class="text-xs text-slate-500 mt-0.5">Prevent "phantom meetings" that fire at the wrong hour during DST transitions.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+        <span class="text-brand-400 text-lg mt-0.5">&#9201;</span>
+        <div>
+          <h4 class="font-medium text-white text-sm">Cron &amp; Workflow Automation</h4>
+          <p class="text-xs text-slate-500 mt-0.5">Jobs that must run exactly once, even when clocks spring forward or fall back.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+        <span class="text-brand-400 text-lg mt-0.5">&#128176;</span>
+        <div>
+          <h4 class="font-medium text-white text-sm">Billing &amp; Payment Systems</h4>
+          <p class="text-xs text-slate-500 mt-0.5">Charges processed at the right time, not an hour early because of a silent offset error.</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/30 p-4">
+        <span class="text-brand-400 text-lg mt-0.5">&#129302;</span>
+        <div>
+          <h4 class="font-medium text-white text-sm">AI Agents &amp; Copilots</h4>
+          <p class="text-xs text-slate-500 mt-0.5">Give your agent a tool that validates times before booking. Ships with function-calling schemas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── QUICK INTEGRATION ─── -->
+  <section class="max-w-3xl mx-auto px-6 py-10">
+    <h2 class="text-2xl font-bold text-center mb-2">Integrate in under 5 minutes</h2>
+    <p class="text-slate-400 text-center mb-8 text-sm">One API key. One HTTP call. Instant value.</p>
+    <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+      <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
+        <span class="text-[10px] font-bold tracking-wider uppercase text-brand-400">TypeScript &mdash; 3 lines</span>
+      </div>
+      <pre class="code-block text-sm p-4 overflow-x-auto text-slate-300 leading-relaxed"><code><span class="text-slate-500">import</span> { ChronoGuardClient } <span class="text-slate-500">from</span> <span class="text-emerald-300">"chronoguard"</span>;
+<span class="text-slate-500">const</span> cg = <span class="text-slate-500">new</span> ChronoGuardClient({ apiKey: <span class="text-emerald-300">"YOUR_KEY"</span> });
+
+<span class="text-slate-500">const</span> result = <span class="text-slate-500">await</span> cg.validate({
+  local_datetime: <span class="text-emerald-300">"2026-03-08T02:30:00"</span>,
+  time_zone: <span class="text-emerald-300">"America/New_York"</span>,
+});
+<span class="text-slate-500">// result.status === "invalid", reason_code === "DST_GAP"</span></code></pre>
+    </div>
+    <div class="flex items-center justify-center gap-6 mt-6 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        TypeScript &amp; Python SDKs
+      </span>
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        OpenAPI 3.1 spec
+      </span>
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        AI agent tool schemas
+      </span>
     </div>
   </section>
 
@@ -214,6 +308,28 @@
   <span class="text-brand-300">"time_zone"</span>: <span class="text-emerald-300">"Europe/London"</span>
 }</code></pre>
       </div>
+    </div>
+  </section>
+
+  <!-- ─── TRUST SIGNALS ─── -->
+  <section class="max-w-3xl mx-auto px-6 py-10">
+    <div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        31 tests passing
+      </span>
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Open source on GitHub
+      </span>
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Self-hostable via Docker
+      </span>
+      <span class="flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Full OpenAPI 3.1 spec
+      </span>
     </div>
   </section>
 

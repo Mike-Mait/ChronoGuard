@@ -10,6 +10,7 @@ import { convertRoute } from "./routes/convert";
 import { keysRoute } from "./routes/keys";
 import { webhooksRoute } from "./routes/webhooks";
 import { AppError } from "./utils/errors";
+import { lookupKey, incrementUsage } from "./routes/keys";
 
 const app = Fastify({
   logger: {
@@ -37,14 +38,36 @@ app.addHook("onRequest", async (request, reply) => {
     return;
   }
 
-  const apiKey = request.headers["x-api-key"];
-  if (!config.apiKey) {
+  const apiKey = request.headers["x-api-key"] as string | undefined;
+  if (!apiKey) {
+    return reply.code(401).send({ error: "Unauthorized: invalid or missing API key" });
+  }
+
+  // Check master key from environment
+  if (config.apiKey && apiKey === config.apiKey) {
     return;
   }
 
-  if (!apiKey || apiKey !== config.apiKey) {
+  // Check dynamically generated keys from keyStore
+  const keyEntry = lookupKey(apiKey);
+  if (!keyEntry) {
     return reply.code(401).send({ error: "Unauthorized: invalid or missing API key" });
   }
+
+  // Enforce rate limits
+  if (keyEntry.requestsUsed >= keyEntry.requestsLimit) {
+    return reply.code(429).send({
+      error: "Rate limit exceeded",
+      limit: keyEntry.requestsLimit,
+      tier: keyEntry.tier,
+      message: keyEntry.tier === "free"
+        ? "Upgrade to Pro for 100,000 requests/month."
+        : "Contact us for enterprise limits.",
+    });
+  }
+
+  // Increment usage
+  incrementUsage(apiKey);
 });
 
 // Request logging hook

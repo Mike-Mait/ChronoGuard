@@ -35,8 +35,10 @@ class ConvertResponse:
 class ChronoGuardClient:
     """Client for the ChronoGuard API."""
 
-    def __init__(self, base_url: str, api_key: str) -> None:
-        self.base_url = base_url.rstrip("/")
+    DEFAULT_BASE_URL = "https://chronoguard-api-production.up.railway.app"
+
+    def __init__(self, api_key: str, base_url: str | None = None) -> None:
+        self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.api_key = api_key
 
     def _request(self, endpoint: str, body: dict[str, Any]) -> dict[str, Any]:

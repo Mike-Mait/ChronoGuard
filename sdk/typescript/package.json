@@ -1,12 +1,19 @@
 {
-  "name": "chronoguard-sdk",
+  "name": "chronoguard",
   "version": "1.0.0",
-  "description": "TypeScript SDK for the ChronoGuard API",
+  "description": "TypeScript/JavaScript SDK for the ChronoGuard API — DST-aware datetime validation, resolution, and conversion",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
   "files": ["dist"],
+  "keywords": ["timezone", "dst", "daylight-saving", "datetime", "validation", "utc", "iana", "chronoguard"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mike-Mait/ChronoGuard.git",
+    "directory": "sdk/typescript"
+  },
+  "homepage": "https://chronoguard-api-production.up.railway.app/docs",
   "license": "ISC"
 }

@@ -40,8 +40,8 @@ export class ChronoGuardClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor(options: { baseUrl: string; apiKey: string }) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, "");
+  constructor(options: { baseUrl?: string; apiKey: string }) {
+    this.baseUrl = (options.baseUrl || "https://chronoguard-api-production.up.railway.app").replace(/\/$/, "");
     this.apiKey = options.apiKey;
   }
 
