@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoGuard &mdash; API Documentation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    /* Smooth highlight for anchor targets */
+    :target { scroll-margin-top: 5rem; }
+    .param-table th { text-align:left; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <!-- ─── TOP BAR ─── -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Guard</span></span>
+        <span class="text-xs text-slate-600 ml-1">Docs</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs/playground" class="text-slate-500 hover:text-slate-300 transition-colors">API Playground</a>
+        <a href="https://github.com/Mike-Mait/ChronoGuard" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <!-- ─── SIDEBAR ─── -->
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Getting Started</p>
+      <a href="#overview" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Overview</a>
+      <a href="#quick-start" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Quick Start</a>
+      <a href="#authentication" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Authentication</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Endpoints</p>
+      <a href="#validate" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">POST /validate</a>
+      <a href="#resolve" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">POST /resolve</a>
+      <a href="#convert" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">POST /convert</a>
+      <a href="#health" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">GET /health</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Reference</p>
+      <a href="#enums" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Enums &amp; Constants</a>
+      <a href="#errors" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Error Handling</a>
+      <a href="#rate-limits" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Rate Limits</a>
+      <a href="#sdks" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">SDKs</a>
+      <a href="#ai-agents" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">AI Agent Integration</a>
+    </nav>
+
+    <!-- ─── MAIN CONTENT ─── -->
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- OVERVIEW -->
+      <section id="overview" class="mb-16">
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">API Documentation</h1>
+        <p class="mt-4 text-base text-slate-400 leading-relaxed max-w-2xl">
+          ChronoGuard is a REST API that validates, resolves, and converts datetimes across timezones with <strong class="text-white">explicit handling of DST ambiguity</strong>. It catches the edge cases that cause silent production bugs &mdash; invalid times that don't exist (spring-forward gaps) and ambiguous times that occur twice (fall-back overlaps).
+        </p>
+        <div class="mt-6 inline-flex items-center gap-3 text-xs">
+          <span class="px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 font-mono">Base URL</span>
+          <code class="text-brand-300">https://chronoguard-api-production.up.railway.app</code>
+        </div>
+      </section>
+
+      <!-- QUICK START -->
+      <section id="quick-start" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Quick Start</h2>
+        <p class="text-sm text-slate-400 mb-4">Get an API key from the <a href="/" class="text-brand-400 hover:underline">home page</a>, then make your first request:</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">POST</span>
+            <span class="text-xs font-mono text-slate-400">/v1/datetime/validate</span>
+          </div>
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>curl -X POST https://chronoguard-api-production.up.railway.app/v1/datetime/validate \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{
+    "local_datetime": "2026-03-08T02:30:00",
+    "time_zone": "America/New_York"
+  }'</code></pre>
+        </div>
+        <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-800">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-brand-400">Response</span>
+            <span class="ml-2 text-[10px] text-red-400 font-mono">200 &mdash; invalid (DST gap)</span>
+          </div>
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>{
+  "status": "invalid",
+  "reason_code": "DST_GAP",
+  "message": "This time does not exist due to DST transition.",
+  "suggested_fixes": [
+    { "strategy": "next_valid_time", "local_datetime": "2026-03-08T03:00:00" },
+    { "strategy": "previous_valid_time", "local_datetime": "2026-03-08T01:59:59" }
+  ]
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- AUTHENTICATION -->
+      <section id="authentication" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Authentication</h2>
+        <p class="text-sm text-slate-400 mb-4">All <code class="text-brand-300">/v1/*</code> endpoints require an API key via the <code class="text-brand-300">x-api-key</code> header:</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>x-api-key: cg_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
+        </div>
+
+        <h3 class="text-base font-semibold text-white mt-8 mb-3">Getting a key</h3>
+        <ol class="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+          <li>Visit the <a href="/" class="text-brand-400 hover:underline">landing page</a> and click <strong class="text-white">"Get Free API Key"</strong></li>
+          <li>Enter your email &mdash; a key prefixed with <code class="text-brand-300">cg_live_</code> is generated instantly</li>
+          <li>Store it securely &mdash; it won't be shown again</li>
+        </ol>
+
+        <h3 class="text-base font-semibold text-white mt-8 mb-3">Tiers</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Tier</th><th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Price</th><th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Requests / month</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2.5 text-white">Free</td><td class="px-4 py-2.5">$0</td><td class="px-4 py-2.5">1,000</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2.5 text-white">Pro</td><td class="px-4 py-2.5">$19/month</td><td class="px-4 py-2.5">100,000</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2.5 text-white">Enterprise</td><td class="px-4 py-2.5">Custom</td><td class="px-4 py-2.5"><a href="mailto:mikemaittech@gmail.com" class="text-brand-400 hover:underline">Contact us</a></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-base font-semibold text-white mt-8 mb-3">Unauthorized response</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>HTTP 401
+{ "error": "Unauthorized: invalid or missing API key" }</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── ENDPOINT: VALIDATE ─── -->
+      <section id="validate" class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400">POST</span>
+          <h2 class="text-xl font-bold text-white font-mono">/v1/datetime/validate</h2>
+        </div>
+        <p class="text-sm text-slate-400 mb-2">Check whether a local datetime is <strong class="text-white">valid</strong>, <strong class="text-red-400">invalid</strong> (DST gap), or <strong class="text-amber-400">ambiguous</strong> (DST overlap) in the given timezone.</p>
+        <p class="text-xs text-slate-500 mb-6"><strong>When to use:</strong> Before storing or acting on a user-provided local time. Call this first to detect problems, then decide how to handle them &mdash; or use <a href="#resolve" class="text-brand-400 hover:underline">/resolve</a> to handle them automatically.</p>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Request body</h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="param-table w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-xs font-semibold text-slate-400">Field</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Type</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Required</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Description</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">local_datetime</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">ISO 8601 local datetime without offset, e.g. <code>2026-03-08T02:30:00</code></td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">time_zone</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">IANA timezone identifier, e.g. <code>America/New_York</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Response &mdash; valid time</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "status": "valid",
+  "message": "The provided datetime is valid in the given timezone."
+}</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Response &mdash; DST gap <span class="text-red-400 font-normal">(invalid)</span></h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "status": "invalid",
+  "reason_code": "DST_GAP",
+  "message": "This time does not exist due to DST transition.",
+  "suggested_fixes": [
+    { "strategy": "next_valid_time", "local_datetime": "2026-03-08T03:00:00" },
+    { "strategy": "previous_valid_time", "local_datetime": "2026-03-08T01:59:59" }
+  ]
+}</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Response &mdash; DST overlap <span class="text-amber-400 font-normal">(ambiguous)</span></h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "status": "ambiguous",
+  "reason_code": "DST_OVERLAP",
+  "message": "This time is ambiguous due to DST transition (fall-back).",
+  "possible_instants": [
+    { "offset": "-04:00", "instant_utc": "2026-11-01T05:30:00.000Z" },
+    { "offset": "-05:00", "instant_utc": "2026-11-01T06:30:00.000Z" }
+  ]
+}</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Response &mdash; invalid timezone</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "status": "invalid",
+  "reason_code": "INVALID_TIMEZONE",
+  "message": "Invalid IANA timezone: Fake/Zone"
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── ENDPOINT: RESOLVE ─── -->
+      <section id="resolve" class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400">POST</span>
+          <h2 class="text-xl font-bold text-white font-mono">/v1/datetime/resolve</h2>
+        </div>
+        <p class="text-sm text-slate-400 mb-2">Resolve a local datetime to a <strong class="text-white">single UTC instant</strong>, automatically handling DST gaps and overlaps using your specified policy.</p>
+        <p class="text-xs text-slate-500 mb-6"><strong>When to use:</strong> When you need a definitive UTC timestamp from a local time and want deterministic behavior for edge cases.</p>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Request body</h3>
+        <div class="overflow-x-auto mb-4">
+          <table class="param-table w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-xs font-semibold text-slate-400">Field</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Type</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Required</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Description</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">local_datetime</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">ISO 8601 local datetime</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">time_zone</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">IANA timezone identifier</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">resolution_policy</td><td class="px-4 py-2 text-xs">object</td><td class="px-4 py-2 text-xs">No</td><td class="px-4 py-2 text-xs text-slate-400">Edge-case handling (see below)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Resolution policies</h3>
+        <div class="grid sm:grid-cols-2 gap-4 mb-6">
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-xs font-semibold text-amber-400 mb-2">resolution_policy.ambiguous</p>
+            <p class="text-xs text-slate-500 mb-2">When the time occurs twice (DST overlap):</p>
+            <ul class="text-xs text-slate-400 space-y-1">
+              <li><code class="text-brand-300">"earlier"</code> <span class="text-slate-600">(default)</span> &mdash; first occurrence</li>
+              <li><code class="text-brand-300">"later"</code> &mdash; second occurrence</li>
+              <li><code class="text-brand-300">"reject"</code> &mdash; return 400 error</li>
+            </ul>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-xs font-semibold text-red-400 mb-2">resolution_policy.invalid</p>
+            <p class="text-xs text-slate-500 mb-2">When the time doesn't exist (DST gap):</p>
+            <ul class="text-xs text-slate-400 space-y-1">
+              <li><code class="text-brand-300">"next_valid_time"</code> <span class="text-slate-600">(default)</span> &mdash; jump forward</li>
+              <li><code class="text-brand-300">"previous_valid_time"</code> &mdash; jump backward</li>
+              <li><code class="text-brand-300">"reject"</code> &mdash; return 400 error</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Example request</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "local_datetime": "2026-11-01T01:30:00",
+  "time_zone": "America/New_York",
+  "resolution_policy": {
+    "ambiguous": "earlier",
+    "invalid": "next_valid_time"
+  }
+}</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Success response</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-4">
+          <pre class="text-sm text-slate-300"><code>{
+  "instant_utc": "2026-11-01T05:30:00.000Z",
+  "offset": "-04:00"
+}</code></pre>
+        </div>
+
+        <div class="overflow-x-auto mb-4">
+          <table class="param-table w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-xs font-semibold text-slate-400">Field</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Type</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Description</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">instant_utc</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs text-slate-400">Resolved UTC instant (ISO 8601, Z suffix)</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">offset</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs text-slate-400">UTC offset that was applied (e.g. <code>-04:00</code>)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Rejected response <span class="text-slate-500 font-normal">(policy = reject)</span></h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>HTTP 400
+{
+  "error": "This time is ambiguous due to DST transition and policy is set to reject.",
+  "code": "DST_OVERLAP"
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── ENDPOINT: CONVERT ─── -->
+      <section id="convert" class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="px-2.5 py-1 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400">POST</span>
+          <h2 class="text-xl font-bold text-white font-mono">/v1/datetime/convert</h2>
+        </div>
+        <p class="text-sm text-slate-400 mb-2">Convert a UTC instant to a local datetime in the target timezone. This is always unambiguous &mdash; one UTC instant maps to exactly one local time.</p>
+        <p class="text-xs text-slate-500 mb-6"><strong>When to use:</strong> Displaying stored UTC timestamps to users in their local timezone.</p>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Request body</h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="param-table w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-xs font-semibold text-slate-400">Field</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Type</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Required</th><th class="px-4 py-2 text-xs font-semibold text-slate-400">Description</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">instant_utc</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">ISO 8601 UTC datetime (must end with <code>Z</code>)</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-brand-300 text-xs">target_time_zone</td><td class="px-4 py-2 text-xs">string</td><td class="px-4 py-2 text-xs">Yes</td><td class="px-4 py-2 text-xs text-slate-400">IANA timezone identifier</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Example</h3>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-2">Request</p>
+            <pre class="text-sm text-slate-300"><code>{
+  "instant_utc": "2026-06-15T15:00:00Z",
+  "target_time_zone": "Europe/London"
+}</code></pre>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-brand-400 mb-2">Response</p>
+            <pre class="text-sm text-slate-300"><code>{
+  "local_datetime": "2026-06-15T16:00:00",
+  "offset": "+01:00",
+  "time_zone": "Europe/London"
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── HEALTH ─── -->
+      <section id="health" class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="px-2.5 py-1 rounded text-xs font-bold bg-blue-500/10 text-blue-400">GET</span>
+          <h2 class="text-xl font-bold text-white font-mono">/health</h2>
+        </div>
+        <p class="text-sm text-slate-400 mb-4">Returns service health status. No authentication required.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>{ "status": "ok" }</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── ENUMS ─── -->
+      <section id="enums" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-6">Enums &amp; Constants</h2>
+
+        <h3 class="text-sm font-semibold text-white mb-2"><code class="text-brand-300">status</code></h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Value</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Meaning</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-emerald-400 text-xs">valid</td><td class="px-4 py-2 text-xs text-slate-400">The datetime exists exactly once in the given timezone</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-red-400 text-xs">invalid</td><td class="px-4 py-2 text-xs text-slate-400">The datetime does not exist (DST gap &mdash; clocks skipped forward)</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-amber-400 text-xs">ambiguous</td><td class="px-4 py-2 text-xs text-slate-400">The datetime exists twice (DST overlap &mdash; clocks fell back)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2"><code class="text-brand-300">reason_code</code></h3>
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Value</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Meaning</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-brand-300">DST_GAP</td><td class="px-4 py-2 text-xs text-slate-400">Time falls in a spring-forward gap</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-brand-300">DST_OVERLAP</td><td class="px-4 py-2 text-xs text-slate-400">Time falls in a fall-back overlap</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-brand-300">INVALID_TIMEZONE</td><td class="px-4 py-2 text-xs text-slate-400">The timezone is not a valid IANA identifier</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─── ERRORS ─── -->
+      <section id="errors" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Error Handling</h2>
+        <p class="text-sm text-slate-400 mb-4">All errors return JSON with an <code class="text-brand-300">error</code> field and an appropriate HTTP status code.</p>
+
+        <div class="overflow-x-auto mb-6">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Status</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Meaning</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">When it happens</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-amber-400">400</td><td class="px-4 py-2 text-xs">Bad Request</td><td class="px-4 py-2 text-xs text-slate-400">Malformed datetime, missing fields, invalid timezone, or rejected by resolution policy</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-red-400">401</td><td class="px-4 py-2 text-xs">Unauthorized</td><td class="px-4 py-2 text-xs text-slate-400">Missing or invalid API key</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-orange-400">429</td><td class="px-4 py-2 text-xs">Rate Limited</td><td class="px-4 py-2 text-xs text-slate-400">Monthly request quota exceeded</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 font-mono text-xs text-red-500">500</td><td class="px-4 py-2 text-xs">Internal Error</td><td class="px-4 py-2 text-xs text-slate-400">Unexpected server error</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Validation error example</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300"><code>HTTP 400
+{
+  "error": "Validation failed",
+  "details": [
+    {
+      "code": "invalid_string",
+      "message": "Must be ISO 8601 local datetime (e.g. 2026-03-08T02:30:00)",
+      "path": ["local_datetime"]
+    }
+  ]
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── RATE LIMITS ─── -->
+      <section id="rate-limits" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Rate Limits</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900"><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Tier</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Monthly limit</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">Effective daily rate</th><th class="px-4 py-2 text-left text-xs font-semibold text-slate-400">p95 latency</th></tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 text-white">Free</td><td class="px-4 py-2">1,000</td><td class="px-4 py-2">~33/day</td><td class="px-4 py-2">&lt; 50ms</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 text-white">Pro</td><td class="px-4 py-2">100,000</td><td class="px-4 py-2">~3,300/day</td><td class="px-4 py-2">&lt; 50ms</td></tr>
+              <tr class="border-t border-slate-800"><td class="px-4 py-2 text-white">Enterprise</td><td class="px-4 py-2">Custom</td><td class="px-4 py-2">Custom</td><td class="px-4 py-2">&lt; 50ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-3 text-xs text-slate-500">All endpoints use pure computation with cached timezone lookups &mdash; no external I/O in the request path.</p>
+      </section>
+
+      <!-- ─── SDKs ─── -->
+      <section id="sdks" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">SDKs</h2>
+
+        <h3 class="text-sm font-semibold text-white mb-2">TypeScript / JavaScript</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 mb-6">
+          <pre class="text-sm text-slate-300 leading-relaxed"><code>import { ChronoGuardClient } from "chronoguard-sdk";
+
+const client = new ChronoGuardClient({
+  baseUrl: "https://chronoguard-api-production.up.railway.app",
+  apiKey: "YOUR_API_KEY",
+});
+
+const result = await client.validate({
+  local_datetime: "2026-03-08T02:30:00",
+  time_zone: "America/New_York",
+});
+
+console.log(result.status); // "invalid"</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Python</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <pre class="text-sm text-slate-300 leading-relaxed"><code>from chronoguard import ChronoGuardClient
+
+client = ChronoGuardClient(
+    base_url="https://chronoguard-api-production.up.railway.app",
+    api_key="YOUR_API_KEY",
+)
+
+result = client.validate("2026-03-08T02:30:00", "America/New_York")
+print(result.status)  # "invalid"</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── AI AGENTS ─── -->
+      <section id="ai-agents" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">AI Agent / Tool Integration</h2>
+        <p class="text-sm text-slate-400 mb-4">ChronoGuard exposes tool schemas compatible with function-calling AI agents (OpenAI, Anthropic Claude, LangChain, CrewAI, etc.). Download the schemas from <a href="https://github.com/Mike-Mait/ChronoGuard/blob/master/agent-tools.json" class="text-brand-400 hover:underline">agent-tools.json</a>.</p>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Available tools</h3>
+        <div class="space-y-3 mb-6">
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <code class="text-sm text-brand-300 font-semibold">validate_local_datetime</code>
+            <p class="text-xs text-slate-400 mt-1">Check if a local datetime is valid, invalid (DST gap), or ambiguous (DST overlap)</p>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <code class="text-sm text-brand-300 font-semibold">resolve_datetime</code>
+            <p class="text-xs text-slate-400 mt-1">Resolve an ambiguous or invalid local datetime to a UTC instant using the specified policy</p>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <code class="text-sm text-brand-300 font-semibold">convert_datetime</code>
+            <p class="text-xs text-slate-400 mt-1">Convert a UTC instant to a local datetime in the target timezone</p>
+          </div>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Example: AI scheduling assistant</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <ol class="text-sm text-slate-400 space-y-3 list-decimal list-inside leading-relaxed">
+            <li>User says: <em class="text-white">"Schedule a call at 2:30 AM ET on March 8, 2026"</em></li>
+            <li>Agent calls <code class="text-brand-300">validate_local_datetime</code> &rarr; gets <code class="text-red-400">status: "invalid"</code>, <code class="text-brand-300">reason_code: "DST_GAP"</code></li>
+            <li>Agent reads <code class="text-brand-300">suggested_fixes</code> &rarr; responds: <em class="text-white">"That time doesn't exist (daylight saving). The next available time is 3:00 AM. Use that?"</em></li>
+            <li>User confirms &rarr; agent calls <code class="text-brand-300">resolve_datetime</code> with <code class="text-brand-300">invalid: "next_valid_time"</code></li>
+            <li>Agent stores <code class="text-emerald-400">2026-03-08T07:00:00Z</code> &mdash; no bug, no silent misconversion</li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="border-t border-slate-800/50 pt-8 pb-12 mt-12">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+          <span>&copy; 2026 ChronoGuard</span>
+          <div class="flex gap-6">
+            <a href="/" class="hover:text-slate-400 transition-colors">Home</a>
+            <a href="/docs/playground" class="hover:text-slate-400 transition-colors">API Playground</a>
+            <a href="https://github.com/Mike-Mait/ChronoGuard" class="hover:text-slate-400 transition-colors">GitHub</a>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Sidebar active state tracking -->
+  <script>
+    const sections = document.querySelectorAll('main section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          const active = document.querySelector('.sidebar-link[href="#' + entry.target.id + '"]');
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(s => observer.observe(s));
+  </script>
+</body>
+</html>

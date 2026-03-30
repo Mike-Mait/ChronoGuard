@@ -23,7 +23,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/docs", "/api/keys", "/api/webhooks"];
+const publicPaths = ["/health", "/docs", "/api/keys", "/api/webhooks", "/docs/playground"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -98,11 +98,18 @@ async function start() {
   });
 
   await app.register(fastifySwaggerUi, {
-    routePrefix: "/docs",
+    routePrefix: "/docs/playground",
   });
 
   // Health check
   app.get("/health", { schema: { hide: true } }, async () => ({ status: "ok" }));
+
+  // Custom docs page
+  app.get("/docs", { schema: { hide: true } }, async (_request, reply) => {
+    const htmlPath = path.join(__dirname, "public", "docs.html");
+    const html = fs.readFileSync(htmlPath, "utf-8");
+    return reply.type("text/html").send(html);
+  });
 
   // Landing page
   app.get("/", { schema: { hide: true } }, async (_request, reply) => {
