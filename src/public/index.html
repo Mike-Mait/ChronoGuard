@@ -76,7 +76,7 @@
     <div class="relative max-w-3xl mx-auto px-6 pt-16 pb-20 text-center">
       <div class="fade-up inline-flex items-center gap-2 px-3 py-1 rounded-full border border-brand-400/20 bg-brand-400/5 text-brand-300 text-xs font-medium mb-8">
         <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        v1.0 &mdash; Production Ready
+        v1.1 &mdash; Production Ready
       </div>
       <h1 class="fade-up fade-up-d1 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1]">
         Never ship a<br />
@@ -104,17 +104,17 @@
       <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
         <div class="text-red-400 text-xs font-bold uppercase tracking-wider mb-2">DST Gap</div>
         <p class="text-sm text-slate-300 leading-relaxed mb-3">User books a meeting at <code class="text-red-300 bg-red-500/10 px-1 rounded">2:30 AM</code> on spring-forward day. That time doesn't exist. Your app stores it anyway.</p>
-        <p class="text-xs text-slate-500">Result: meeting fires at the wrong time or not at all.</p>
+        <p class="text-xs text-red-400/70 font-medium">Missed standups. No-show clients. Support tickets you can't explain.</p>
       </div>
       <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
         <div class="text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">DST Overlap</div>
         <p class="text-sm text-slate-300 leading-relaxed mb-3">User picks <code class="text-amber-300 bg-amber-500/10 px-1 rounded">1:30 AM</code> on fall-back day. That time happens <strong>twice</strong>. Your app silently picks one.</p>
-        <p class="text-xs text-slate-500">Result: payment processes an hour early, or a cron job runs twice.</p>
+        <p class="text-xs text-amber-400/70 font-medium">Double charges. Duplicate jobs. An incident at 2 AM you won't enjoy debugging.</p>
       </div>
       <div class="rounded-xl border border-brand-500/20 bg-brand-500/5 p-5">
         <div class="text-brand-400 text-xs font-bold uppercase tracking-wider mb-2">Silent Offset</div>
         <p class="text-sm text-slate-300 leading-relaxed mb-3">Naive UTC conversion picks <code class="text-brand-300 bg-brand-500/10 px-1 rounded">-05:00</code> when it should be <code class="text-brand-300 bg-brand-500/10 px-1 rounded">-04:00</code>. No error. Just wrong.</p>
-        <p class="text-xs text-slate-500">Result: every scheduled task is off by one hour, twice a year.</p>
+        <p class="text-xs text-brand-400/70 font-medium">Every scheduled task off by one hour, twice a year. No error. No alert. Just wrong.</p>
       </div>
     </div>
   </section>
@@ -220,7 +220,8 @@
   <!-- ─── CODE EXAMPLES ─── -->
   <section id="examples" class="max-w-3xl mx-auto px-6 py-20">
     <h2 class="text-2xl font-bold text-center mb-2">See it in action</h2>
-    <p class="text-slate-400 text-center mb-12 text-sm">Three endpoints. Zero ambiguity.</p>
+    <p class="text-slate-400 text-center mb-2 text-sm">Three endpoints. Zero ambiguity.</p>
+    <p class="text-center mb-12"><a href="/docs/playground" class="text-xs text-brand-400 hover:text-brand-300 transition-colors font-medium">Try it live in the API Playground &rarr;</a></p>
 
     <!-- Tab buttons -->
     <div class="flex gap-1 mb-4 bg-slate-900 rounded-lg p-1 border border-slate-800">
