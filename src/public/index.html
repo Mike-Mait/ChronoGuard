@@ -98,6 +98,7 @@
           See Examples
         </a>
       </div>
+      <p class="fade-up fade-up-d3 mt-6 text-xs text-slate-500">Not needed for simple UTC display formatting. Built for apps that interpret and act on user-entered local times.</p>
     </div>
   </section>
 
@@ -149,6 +150,28 @@
         </div>
         <h3 class="font-semibold text-white mb-1">Convert</h3>
         <p class="text-sm text-slate-400 leading-relaxed">UTC to local, any timezone. Always unambiguous, always correct. Sub-50ms p95 latency.</p>
+      </div>
+    </div>
+
+    <!-- Decision tree -->
+    <div class="mt-10 max-w-2xl mx-auto rounded-xl border border-slate-800 bg-slate-900/30 p-6">
+      <h4 class="text-sm font-semibold text-white mb-4 text-center">Where do I start?</h4>
+      <div class="space-y-3 text-sm">
+        <div class="flex items-start gap-3">
+          <span class="text-red-400 font-mono text-xs mt-0.5 shrink-0 w-16 text-right">validate</span>
+          <span class="text-slate-500">&rarr;</span>
+          <span class="text-slate-400">"I have a user-entered local time. Is it safe to store?"</span>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="text-amber-400 font-mono text-xs mt-0.5 shrink-0 w-16 text-right">resolve</span>
+          <span class="text-slate-500">&rarr;</span>
+          <span class="text-slate-400">"I need one deterministic UTC instant from this local time."</span>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="text-emerald-400 font-mono text-xs mt-0.5 shrink-0 w-16 text-right">convert</span>
+          <span class="text-slate-500">&rarr;</span>
+          <span class="text-slate-400">"I already have UTC. What's the local time in this timezone?"</span>
+        </div>
       </div>
     </div>
   </section>
@@ -203,6 +226,9 @@
 
     <!-- TypeScript -->
     <div id="lang-panel-ts" class="lang-panel">
+      <div class="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 mb-2">
+        <pre class="code-block text-xs text-slate-400"><code><span class="text-slate-500">$</span> npm install chronoguard</code></pre>
+      </div>
       <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
           <span class="text-[10px] font-bold tracking-wider uppercase text-brand-400">TypeScript &mdash; 3 lines</span>
@@ -220,6 +246,9 @@
 
     <!-- Python -->
     <div id="lang-panel-py" class="lang-panel hidden">
+      <div class="rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-2 mb-2">
+        <pre class="code-block text-xs text-slate-400"><code><span class="text-slate-500">$</span> pip install chronoguard</code></pre>
+      </div>
       <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
         <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
           <span class="text-[10px] font-bold tracking-wider uppercase text-brand-400">Python &mdash; 3 lines</span>
@@ -374,7 +403,7 @@ result = cg.validate(
       <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
         <div class="text-2xl font-extrabold text-white">63</div>
         <div class="text-xs text-slate-500 mt-1">tests passing</div>
-        <div class="text-[10px] text-slate-600 mt-0.5">Adversarial DST edge cases across 9 timezone regimes</div>
+        <div class="text-[10px] text-slate-600 mt-0.5">Lord Howe, Chatham, Nepal, Samoa, Tehran, Casablanca, Fiji, Santiago &amp; more</div>
       </div>
       <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
         <div class="text-2xl font-extrabold text-white">&lt;50ms</div>
@@ -451,6 +480,7 @@ result = cg.validate(
         <div class="mt-4 flex items-baseline gap-1">
           <span class="text-4xl font-extrabold text-white">$19</span>
           <span class="text-slate-500 text-sm">/month</span>
+          <span class="text-slate-600 text-xs ml-1">($228/yr)</span>
         </div>
         <p class="text-xs text-slate-500 mt-2">Ship with confidence. Never debug a DST incident again.</p>
         <ul class="mt-6 space-y-3 text-sm text-slate-400 flex-1">
@@ -479,7 +509,7 @@ result = cg.validate(
             <span class="text-2xl font-extrabold text-white">$250</span>
             <span class="text-slate-500 text-xs">/month, billed annually</span>
           </div>
-          <p class="text-xs text-slate-500 mt-2">For teams that need annual billing, SLAs, and headroom to grow.</p>
+          <p class="text-xs text-slate-500 mt-2">Best for one team that needs annual billing, SLAs, and headroom to grow.</p>
           <ul class="mt-5 space-y-2.5 text-sm text-slate-400 flex-1">
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>5M requests / year included</li>
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Overages at $0.08 / 1k requests</li>
@@ -499,7 +529,7 @@ result = cg.validate(
             <span class="text-2xl font-extrabold text-white">$800</span>
             <span class="text-slate-500 text-xs">/month, billed annually</span>
           </div>
-          <p class="text-xs text-slate-500 mt-2">For production SaaS with scheduling, billing, or automation at scale.</p>
+          <p class="text-xs text-slate-500 mt-2">Best for multi-product or high-volume SaaS with scheduling, billing, or automation.</p>
           <ul class="mt-5 space-y-2.5 text-sm text-slate-400 flex-1">
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>10M requests / year included</li>
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Overages at $0.06 / 1k requests</li>
@@ -539,7 +569,8 @@ result = cg.validate(
   <!-- ─── DIG DEEPER ─── -->
   <section class="max-w-4xl mx-auto px-6 py-16">
     <h2 class="text-2xl font-bold text-center mb-2">Dig deeper</h2>
-    <p class="text-slate-400 text-center mb-8 text-sm">Everything you need to evaluate, integrate, and ship with confidence.</p>
+    <p class="text-slate-400 text-center mb-2 text-sm">Everything you need to evaluate, integrate, and ship with confidence.</p>
+    <p class="text-center mb-8 text-xs text-slate-600">Versioned API behavior. Breaking changes announced in the changelog before they ship.</p>
     <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <a href="/docs" class="group rounded-xl border border-slate-800 bg-slate-900/30 hover:border-brand-500/40 p-5 transition-colors">
         <div class="text-brand-400 text-sm font-semibold mb-1 group-hover:text-brand-300">API Documentation</div>
