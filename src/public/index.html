@@ -88,7 +88,7 @@
         <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-brand-200">timezone bug</span> again.
       </h1>
       <p class="fade-up fade-up-d2 mt-6 text-lg text-slate-400 max-w-xl mx-auto leading-relaxed">
-        One API to validate, resolve, and convert datetimes across every timezone &mdash; with explicit handling of DST gaps, overlaps, and ambiguity.
+        One API to validate, resolve, and convert datetimes across every IANA timezone &mdash; with explicit handling of DST gaps, overlaps, and ambiguity. Half-hour offsets, 45-minute offsets, 30-minute DST shifts &mdash; all covered.
       </p>
       <div class="fade-up fade-up-d3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
         <a href="#pricing" class="w-full sm:w-auto px-8 py-3.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition-colors shadow-lg shadow-brand-500/25">
@@ -365,11 +365,16 @@ result = cg.validate(
   <section class="max-w-4xl mx-auto px-6 py-16">
     <h2 class="text-2xl font-bold text-center mb-2">Production infrastructure, not a wrapper</h2>
     <p class="text-slate-400 text-center mb-10 text-sm max-w-2xl mx-auto">ChronoGuard isn't a thin layer over a timezone library. It's correctness infrastructure with the operational maturity to match.</p>
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
+        <div class="text-2xl font-extrabold text-white">All</div>
+        <div class="text-xs text-slate-500 mt-1">IANA timezones</div>
+        <div class="text-[10px] text-slate-600 mt-0.5">Every offset, every DST regime. No hardcoded whitelist.</div>
+      </div>
       <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
         <div class="text-2xl font-extrabold text-white">63</div>
         <div class="text-xs text-slate-500 mt-1">tests passing</div>
-        <div class="text-[10px] text-slate-600 mt-0.5">Including adversarial DST edge cases across 9 timezone regimes</div>
+        <div class="text-[10px] text-slate-600 mt-0.5">Adversarial DST edge cases across 9 timezone regimes</div>
       </div>
       <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
         <div class="text-2xl font-extrabold text-white">&lt;50ms</div>
@@ -457,6 +462,7 @@ result = cg.validate(
         <button onclick="openModal('pro')" class="mt-8 w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition-colors shadow-lg shadow-brand-500/25 cursor-pointer">
           Get Pro API Key
         </button>
+        <p class="text-[10px] text-slate-600 mt-3 text-center">Best for scheduling, booking, billing, and workflow apps that accept user-entered times.</p>
       </div>
     </div>
 
@@ -473,10 +479,10 @@ result = cg.validate(
             <span class="text-2xl font-extrabold text-white">$250</span>
             <span class="text-slate-500 text-xs">/month, billed annually</span>
           </div>
-          <p class="text-xs text-slate-500 mt-2">For teams that have outgrown Pro and need procurement-friendly billing.</p>
+          <p class="text-xs text-slate-500 mt-2">For teams that need annual billing, SLAs, and headroom to grow.</p>
           <ul class="mt-5 space-y-2.5 text-sm text-slate-400 flex-1">
-            <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>2M requests / year included</li>
-            <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Overages at $0.10 / 1k requests</li>
+            <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>5M requests / year included</li>
+            <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Overages at $0.08 / 1k requests</li>
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Invoice billing &amp; annual contract</li>
             <li class="flex items-start gap-2"><svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Priority email support (48h SLA)</li>
           </ul>
