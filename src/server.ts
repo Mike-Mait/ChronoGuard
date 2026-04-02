@@ -112,7 +112,7 @@ async function start() {
       info: {
         title: "ChronoGuard API",
         description: "DST-aware datetime validation, resolution, and conversion API",
-        version: "1.0.0",
+        version: "1.1.0",
       },
       servers: [
         { url: config.baseUrl, description: "Production" },
