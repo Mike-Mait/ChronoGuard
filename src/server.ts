@@ -111,7 +111,7 @@ async function start() {
       openapi: "3.1.0",
       info: {
         title: "ChronoGuard API",
-        description: "DST-aware datetime validation, resolution, and conversion API",
+        description: "DST-aware datetime validation, resolution, and conversion API.\n\n**Need an API key?** [Get one free on the homepage](/) — no credit card required. Then click **Authorize** above and paste your key.",
         version: "1.1.0",
       },
       servers: [
