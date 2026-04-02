@@ -329,6 +329,7 @@ result = cg.validate(
       <button onclick="showTab('validate')" id="tab-validate" class="tab-btn flex-1 text-xs font-medium py-2 rounded-md bg-brand-500/20 text-brand-300 transition-colors">Validate</button>
       <button onclick="showTab('resolve')" id="tab-resolve" class="tab-btn flex-1 text-xs font-medium py-2 rounded-md text-slate-500 hover:text-slate-300 transition-colors">Resolve</button>
       <button onclick="showTab('convert')" id="tab-convert" class="tab-btn flex-1 text-xs font-medium py-2 rounded-md text-slate-500 hover:text-slate-300 transition-colors">Convert</button>
+      <button onclick="showTab('batch')" id="tab-batch" class="tab-btn flex-1 text-xs font-medium py-2 rounded-md text-slate-500 hover:text-slate-300 transition-colors">Batch</button>
     </div>
 
     <!-- Validate -->
@@ -408,6 +409,40 @@ result = cg.validate(
   <span class="text-brand-300">"local_datetime"</span>: <span class="text-emerald-300">"2026-06-15T16:00:00"</span>,
   <span class="text-brand-300">"offset"</span>: <span class="text-emerald-300">"+01:00"</span>,
   <span class="text-brand-300">"time_zone"</span>: <span class="text-emerald-300">"Europe/London"</span>
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- Batch -->
+    <div id="panel-batch" class="tab-panel hidden">
+      <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
+          <span class="text-[10px] font-bold tracking-wider uppercase text-emerald-400">Request</span>
+        </div>
+        <pre class="code-block text-sm p-4 overflow-x-auto text-slate-300 leading-relaxed"><code><span class="text-slate-500">$</span> curl -X POST https://chronoguard-api-production.up.railway.app/v1/datetime/batch \
+  -H <span class="text-amber-300">"x-api-key: YOUR_KEY"</span> \
+  -d <span class="text-emerald-300">'{
+    "items": [
+      { "operation": "validate", "local_datetime": "2026-03-08T02:30:00", "time_zone": "America/New_York" },
+      { "operation": "convert", "instant_utc": "2026-06-15T12:00:00Z", "target_time_zone": "Asia/Tokyo" },
+      { "operation": "resolve", "local_datetime": "2026-11-01T01:30:00", "time_zone": "America/Chicago", "resolution_policy": { "ambiguous": "later" } }
+    ]
+  }'</span></code></pre>
+      </div>
+      <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800">
+          <span class="text-brand-400 text-[10px] font-bold tracking-wider uppercase">Response</span>
+          <span class="ml-auto text-[10px] text-emerald-400 font-mono">3 succeeded, 0 failed</span>
+        </div>
+        <pre class="code-block text-sm p-4 overflow-x-auto text-slate-300 leading-relaxed"><code>{
+  <span class="text-brand-300">"total"</span>: <span class="text-amber-300">3</span>,
+  <span class="text-brand-300">"succeeded"</span>: <span class="text-amber-300">3</span>,
+  <span class="text-brand-300">"failed"</span>: <span class="text-amber-300">0</span>,
+  <span class="text-brand-300">"results"</span>: [
+    { <span class="text-brand-300">"index"</span>: <span class="text-amber-300">0</span>, <span class="text-brand-300">"success"</span>: <span class="text-amber-300">true</span>, <span class="text-brand-300">"status"</span>: <span class="text-red-400">"invalid"</span>, <span class="text-brand-300">"reason_code"</span>: <span class="text-amber-300">"DST_GAP"</span> },
+    { <span class="text-brand-300">"index"</span>: <span class="text-amber-300">1</span>, <span class="text-brand-300">"success"</span>: <span class="text-amber-300">true</span>, <span class="text-brand-300">"local_datetime"</span>: <span class="text-emerald-300">"2026-06-15T21:00:00"</span>, <span class="text-brand-300">"offset"</span>: <span class="text-emerald-300">"+09:00"</span> },
+    { <span class="text-brand-300">"index"</span>: <span class="text-amber-300">2</span>, <span class="text-brand-300">"success"</span>: <span class="text-amber-300">true</span>, <span class="text-brand-300">"instant_utc"</span>: <span class="text-emerald-300">"2026-11-01T07:30:00.000Z"</span>, <span class="text-brand-300">"offset"</span>: <span class="text-emerald-300">"-06:00"</span> }
+  ]
 }</code></pre>
       </div>
     </div>
