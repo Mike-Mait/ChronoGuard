@@ -803,14 +803,18 @@ result = cg.validate(
 
         if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
-        if (tier === 'pro' && data.checkout_url) {
+        if (data.checkout_url) {
           document.getElementById('key-form').classList.add('hidden');
           document.getElementById('pro-redirect').classList.remove('hidden');
           window.location.href = data.checkout_url;
-        } else {
+        } else if (data.api_key) {
           document.getElementById('key-form').classList.add('hidden');
           document.getElementById('key-success').classList.remove('hidden');
           document.getElementById('api-key-display').textContent = data.api_key;
+        } else {
+          // Key exists but can't be shown (server restarted)
+          document.getElementById('key-form').classList.add('hidden');
+          document.getElementById('modal-desc').textContent = data.message;
         }
       } catch (err) {
         alert(err.message);
@@ -844,6 +848,15 @@ result = cg.validate(
         overlay.classList.remove('hidden');
         overlay.classList.add('flex');
         // Clean URL
+        window.history.replaceState({}, '', '/');
+      } else if (checkout === 'success' && !key) {
+        // Pro upgrade for existing key (key not shown — user already has it)
+        document.getElementById('modal-title').textContent = 'Payment successful!';
+        document.getElementById('modal-desc').textContent = 'Your Pro plan is now active. Your existing API key has been upgraded to Pro tier.';
+        document.getElementById('key-form').classList.add('hidden');
+        const overlay = document.getElementById('modal-overlay');
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
         window.history.replaceState({}, '', '/');
       } else if (checkout === 'cancelled') {
         document.getElementById('modal-title').textContent = 'Checkout cancelled';

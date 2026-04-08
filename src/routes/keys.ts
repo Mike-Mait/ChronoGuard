@@ -183,10 +183,18 @@ export async function downgradeToFreeByStripeCustomerId(stripeCustomerId: string
 }
 
 // ─── Create or retrieve a key ───
+interface CreateKeyResult {
+  apiKey: string | null;
+  isExisting: boolean;
+  entry: KeyEntry | null;
+  dbTier?: string;
+  dbRequestsLimit?: number;
+}
+
 async function createOrGetKey(
   email: string,
   tier: "free" | "pro"
-): Promise<{ apiKey: string; isExisting: boolean; entry: KeyEntry }> {
+): Promise<CreateKeyResult> {
   const prisma = getPrisma();
 
   // Check Prisma first
@@ -200,25 +208,14 @@ async function createOrGetKey(
           return { apiKey: memEntry.apiKey, isExisting: true, entry: memEntry };
         }
         // Key exists in DB but not in memory (server restarted).
-        // Generate a new key and update the DB record.
-        const newKey = generateApiKey();
-        await prisma.apiKey.update({
-          where: { email },
-          data: { keyHash: hashKey(newKey) },
-        });
-        const entry: KeyEntry = {
-          email,
-          apiKey: newKey,
-          tier: existing.tier as "free" | "pro",
-          requestsUsed: existing.requestsUsed,
-          requestsLimit: existing.requestsLimit,
-          stripeCustomerId: existing.stripeCustomerId ?? undefined,
-          createdAt: existing.createdAt,
+        // Don't regenerate — that would invalidate the user's saved key.
+        return {
+          apiKey: null,
+          isExisting: true,
+          entry: null,
+          dbTier: existing.tier as "free" | "pro",
+          dbRequestsLimit: existing.requestsLimit,
         };
-        memoryKeyStore.set(email, entry);
-        memoryKeyIndex.set(newKey, email);
-        keyCache.set(newKey, entry);
-        return { apiKey: newKey, isExisting: true, entry };
       }
     } catch {
       // DB error — fall through to memory-only
@@ -288,10 +285,66 @@ export async function keysRoute(app: FastifyInstance) {
         });
       }
 
-      const { apiKey, isExisting, entry } = await createOrGetKey(
+      const result = await createOrGetKey(
         email,
         (tier as "free" | "pro") || "free"
       );
+
+      // Key exists in DB but can't be recovered (server restarted)
+      if (result.isExisting && result.apiKey === null) {
+        if (tier === "pro") {
+          // Still allow Pro upgrade — webhook upgrades by email
+          if (!config.stripeSecretKey) {
+            return reply.send({
+              tier: result.dbTier,
+              message: "Payment processing not configured. Use the API key you were given when you first signed up.",
+            });
+          }
+
+          try {
+            const stripe = require("stripe")(config.stripeSecretKey);
+
+            const session = await stripe.checkout.sessions.create({
+              mode: "subscription",
+              payment_method_types: ["card"],
+              customer_email: email,
+              line_items: [
+                {
+                  price: config.stripePriceId,
+                  quantity: 1,
+                },
+              ],
+              metadata: { email },
+              success_url: `${config.baseUrl}/?checkout=success`,
+              cancel_url: `${config.baseUrl}/?checkout=cancelled`,
+            });
+
+            return reply.send({
+              checkout_url: session.url,
+              message: "Complete payment to upgrade your existing key to Pro.",
+            });
+          } catch (err: any) {
+            request.log.error(err, "Stripe checkout session creation failed");
+            return (reply as any).code(500).send({
+              error: "Failed to create checkout session",
+              code: "CHECKOUT_FAILED",
+              message: "Unable to initialize payment. Please try again later.",
+            });
+          }
+        }
+
+        return reply.send({
+          tier: result.dbTier,
+          requests_limit: result.dbRequestsLimit,
+          message: "A key already exists for this email. Use the API key you were given when you first signed up.",
+        });
+      }
+
+      const { apiKey, isExisting, entry } = result as {
+        apiKey: string;
+        isExisting: boolean;
+        entry: KeyEntry;
+      };
 
       if (tier === "pro") {
         // Create Stripe Checkout session
