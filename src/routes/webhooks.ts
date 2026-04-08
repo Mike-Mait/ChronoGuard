@@ -3,11 +3,19 @@ import { config } from "../config/env";
 import { upgradeToProByEmail } from "./keys";
 
 export async function webhooksRoute(app: FastifyInstance) {
+  // Capture raw body for Stripe signature verification
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (_req: any, body: string, done: (err: Error | null, body?: any) => void) => {
+      done(null, body);
+    }
+  );
+
   app.post(
     "/api/webhooks/stripe",
     {
       schema: { hide: true },
-      config: { rawBody: true },
     },
     async (request, reply) => {
       if (!config.stripeSecretKey || !config.stripeWebhookSecret) {
@@ -21,16 +29,10 @@ export async function webhooksRoute(app: FastifyInstance) {
       const stripe = require("stripe")(config.stripeSecretKey);
       const sig = request.headers["stripe-signature"];
 
-      // Access raw body — we'll pass it via the rawBody plugin or use the body directly
-      const rawBody =
-        typeof request.body === "string"
-          ? request.body
-          : JSON.stringify(request.body);
-
       let event: any;
       try {
         event = stripe.webhooks.constructEvent(
-          rawBody,
+          request.body as string,
           sig,
           config.stripeWebhookSecret
         );
