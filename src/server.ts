@@ -32,6 +32,9 @@ const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks"
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
+  // Skip auth for CORS preflight requests
+  if (request.method === "OPTIONS") return;
+
   const pathname = request.url.split("?")[0];
   if (
     pathname === "/" ||
