@@ -129,6 +129,59 @@ export async function upgradeToProByEmail(email: string, stripeCustomerId: strin
   }
 }
 
+// ─── Downgrade to Free by Stripe Customer ID ───
+export async function downgradeToFreeByStripeCustomerId(stripeCustomerId: string): Promise<boolean> {
+  const prisma = getPrisma();
+  if (prisma) {
+    try {
+      const record = await prisma.apiKey.findFirst({
+        where: { stripeCustomerId },
+      });
+      if (!record) return false;
+
+      await prisma.apiKey.update({
+        where: { email: record.email },
+        data: {
+          tier: "free",
+          requestsLimit: 1_000,
+        },
+      });
+
+      // Also update memory/cache
+      const entry = memoryKeyStore.get(record.email);
+      if (entry) {
+        entry.tier = "free";
+        entry.requestsLimit = 1_000;
+        const cached = keyCache.get(entry.apiKey);
+        if (cached) {
+          cached.tier = "free";
+          cached.requestsLimit = 1_000;
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Fallback: search in-memory store
+  for (const [email, entry] of memoryKeyStore) {
+    if (entry.stripeCustomerId === stripeCustomerId) {
+      entry.tier = "free";
+      entry.requestsLimit = 1_000;
+      const cached = keyCache.get(entry.apiKey);
+      if (cached) {
+        cached.tier = "free";
+        cached.requestsLimit = 1_000;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // ─── Create or retrieve a key ───
 async function createOrGetKey(
   email: string,

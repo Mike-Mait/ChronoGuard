@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { config } from "../config/env";
-import { upgradeToProByEmail } from "./keys";
+import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -61,9 +61,31 @@ export async function webhooksRoute(app: FastifyInstance) {
         }
 
         case "customer.subscription.deleted": {
+          const customerId = event.data.object.customer;
+          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
-            { customer: event.data.object.customer },
-            "Subscription cancelled"
+            { customer: customerId, downgraded },
+            "Subscription cancelled — downgraded to free tier"
+          );
+          break;
+        }
+
+        case "charge.refunded": {
+          const customerId = event.data.object.customer;
+          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
+          request.log.info(
+            { customer: customerId, downgraded },
+            "Charge refunded — downgraded to free tier"
+          );
+          break;
+        }
+
+        case "invoice.payment_failed": {
+          const customerId = event.data.object.customer;
+          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
+          request.log.info(
+            { customer: customerId, downgraded },
+            "Payment failed — downgraded to free tier"
           );
           break;
         }
