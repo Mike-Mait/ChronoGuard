@@ -4,8 +4,8 @@
   "description": "ChronoShield API - DST-aware datetime validation, resolution, and conversion",
   "main": "dist/server.js",
   "scripts": {
-    "build": "prisma generate && tsc && node -e \"require('fs').cpSync('src/public','dist/public',{recursive:true})\"",
-    "start": "prisma migrate deploy && node dist/server.js",
+    "build": "prisma generate --schema=src/db/prisma/schema.prisma && tsc && node -e \"require('fs').cpSync('src/public','dist/public',{recursive:true})\"",
+    "start": "prisma migrate deploy --schema=src/db/prisma/schema.prisma && node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
