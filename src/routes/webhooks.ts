@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { config } from "../config/env";
+import { config, getStripe } from "../config/env";
 import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
 
 export async function webhooksRoute(app: FastifyInstance) {
@@ -26,7 +26,7 @@ export async function webhooksRoute(app: FastifyInstance) {
         });
       }
 
-      const stripe = require("stripe")(config.stripeSecretKey);
+      const stripe = getStripe();
       const sig = request.headers["stripe-signature"];
 
       let event: any;

@@ -13,3 +13,14 @@ export const config = {
   stripePriceId: process.env.STRIPE_PRICE_ID || "",
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET || "",
 };
+
+// ─── Stripe singleton ───
+let stripeInstance: any = null;
+
+export function getStripe(): any | null {
+  if (!config.stripeSecretKey) return null;
+  if (!stripeInstance) {
+    stripeInstance = require("stripe")(config.stripeSecretKey);
+  }
+  return stripeInstance;
+}

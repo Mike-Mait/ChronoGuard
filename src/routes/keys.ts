@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import crypto from "crypto";
-import { config } from "../config/env";
+import { config, getStripe } from "../config/env";
 import { getPrisma } from "../db/client";
 
 // ─── Types ───
@@ -26,8 +26,16 @@ function isResetDue(resetAt: Date): boolean {
 }
 
 // ─── In-memory fallback (used when DATABASE_URL is not set) ───
+const MAX_CACHE_SIZE = 10_000;
 const memoryKeyStore = new Map<string, KeyEntry>();
 const memoryKeyIndex = new Map<string, string>(); // apiKey -> email
+
+function evictOldestIfNeeded<K, V>(map: Map<K, V>, limit: number): void {
+  if (map.size > limit) {
+    const oldest = map.keys().next().value!;
+    map.delete(oldest);
+  }
+}
 
 // ─── Key generation ───
 export function generateApiKey(): string {
@@ -304,6 +312,9 @@ async function createOrGetKey(
       // DB error — continue with memory only
     }
   }
+  evictOldestIfNeeded(memoryKeyStore, MAX_CACHE_SIZE);
+  evictOldestIfNeeded(memoryKeyIndex, MAX_CACHE_SIZE);
+  evictOldestIfNeeded(keyCache, MAX_CACHE_SIZE);
   memoryKeyStore.set(email, entry);
   memoryKeyIndex.set(apiKey, email);
   keyCache.set(apiKey, entry);
@@ -320,6 +331,7 @@ function checkKeyRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = keyRequestCounts.get(ip);
   if (!entry || now >= entry.resetAt) {
+    evictOldestIfNeeded(keyRequestCounts, MAX_CACHE_SIZE);
     keyRequestCounts.set(ip, { count: 1, resetAt: now + KEY_RATE_WINDOW_MS });
     return true;
   }
@@ -381,7 +393,7 @@ export async function keysRoute(app: FastifyInstance) {
           }
 
           try {
-            const stripe = require("stripe")(config.stripeSecretKey);
+            const stripe = getStripe();
 
             const session = await stripe.checkout.sessions.create({
               mode: "subscription",
@@ -446,7 +458,7 @@ export async function keysRoute(app: FastifyInstance) {
         }
 
         try {
-          const stripe = require("stripe")(config.stripeSecretKey);
+          const stripe = getStripe();
 
           const session = await stripe.checkout.sessions.create({
             mode: "subscription",
