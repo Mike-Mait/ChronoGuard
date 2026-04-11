@@ -22,6 +22,7 @@ model ApiKey {
 
   requestLogs RequestLog[]
 
+  @@index([stripeCustomerId])
   @@map("api_keys")
 }
 
@@ -37,6 +38,7 @@ model RequestLog {
 
   @@index([apiKeyId])
   @@index([createdAt])
+  @@index([apiKeyId, createdAt])
   @@map("request_logs")
 }
 

@@ -4,6 +4,41 @@ All notable changes to ChronoShield API will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] - 2026-04-11
+
+### Added
+- **Automated Stripe lifecycle** — API keys now automatically downgrade to free tier on `charge.refunded`, `invoice.payment_failed`, and `customer.subscription.deleted` webhook events
+- **Enterprise contact form** — replaced `mailto:` Contact Sales buttons with an inline modal form (`POST /api/contact`) backed by `contact_inquiries` database table with self-healing schema creation
+- **Email notifications** — contact form submissions now trigger email notifications to `sales@chronoshieldapi.com` via Resend SMTP (nodemailer)
+- **Request logging** — authenticated API requests are now persisted to the `request_logs` table (endpoint, method, status, latency, key ID) for usage analytics
+- **Admin endpoints** — `POST /api/admin/keys/revoke`, `POST /api/admin/keys/activate`, `GET /api/admin/keys` for key management, protected by master API key
+- **Lazy monthly usage reset** — `requestsUsed` automatically resets to 0 on the first request of a new month via `resetAt` field (no cron required)
+- **Per-IP rate limiting** on `/api/keys` — 10 requests per minute to prevent key generation abuse
+- **Security headers** — `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`
+- **Rate limit response headers** — `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` exposed on every authenticated response
+- **Static HTML caching** — landing, docs, terms, privacy, and AUP pages cached in memory at startup
+- **Professional contact addresses** — `info@`, `support@`, `sales@`, `security@chronoshieldapi.com` integrated across docs and landing page
+- **SDK polish** — TypeScript and Python SDKs now include READMEs, complete metadata, version exports, and are publish-ready for npm/PyPI
+
+### Changed
+- **API key preservation** — keys are no longer regenerated on server restart; existing DB records are preserved
+- **Stripe client** — refactored to a singleton via `getStripe()` to prevent repeated instantiation
+- **Memory cache eviction** — in-memory key store now caps at 10,000 entries with FIFO eviction
+- **Webhook error sanitization** — invalid signature errors no longer leak internal details
+- **Email validation** — stricter regex and 254-character limit on `/api/keys` and `/api/contact`
+- **Trust proxy** — Fastify configured with `trustProxy: true` for accurate client IPs behind Railway's reverse proxy
+- **Status endpoint** — removed `icu_version` and `node_version` from `timezone_data` response
+
+### Fixed
+- **Key invalidation on restart** — fixed bug where regenerating keys on server restart would invalidate users' saved keys
+- **Rate limiting on Railway** — `request.ip` now resolves correctly behind the reverse proxy
+- **Double subscription guard** — `/api/keys` now blocks creating a second Stripe checkout for users already on Pro
+- **API key removed from URLs** — Stripe `success_url` no longer includes the raw key as a query parameter
+
+### Security
+- Removed accidentally committed `.claude/settings.local.json` containing Railway API tokens; scrubbed from git history
+- Added `.claude/settings.local.json` to `.gitignore`
+
 ## [1.2.0] - 2026-04-07
 
 ### Added

@@ -18,6 +18,8 @@ export const config = {
   smtpPass: process.env.SMTP_PASS || "",
   smtpFrom: process.env.SMTP_FROM || "sales@chronoshieldapi.com",
   contactNotifyEmail: process.env.CONTACT_NOTIFY_EMAIL || "sales@chronoshieldapi.com",
+  sentryDsn: process.env.SENTRY_DSN || "",
+  nodeEnv: process.env.NODE_ENV || "development",
 };
 
 // ─── Stripe singleton ───

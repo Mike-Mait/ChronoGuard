@@ -1,3 +1,6 @@
+import { initSentry, captureException } from "./config/sentry";
+initSentry(); // Must run before other imports that might throw
+
 import path from "path";
 import fs from "fs";
 import Fastify from "fastify";
@@ -95,7 +98,7 @@ app.addHook("onRequest", async (request, reply) => {
 
 // API version + rate-limit + security headers
 app.addHook("onSend", async (request, reply) => {
-  reply.header("X-API-Version", "1.2.0");
+  reply.header("X-API-Version", "1.3.0");
   reply.header("X-Powered-By", "ChronoShield API");
   reply.header("X-Content-Type-Options", "nosniff");
   reply.header("X-Frame-Options", "DENY");
@@ -155,6 +158,11 @@ app.setErrorHandler(async (error, request, reply) => {
   }
 
   request.log.error(error);
+  captureException(error, {
+    method: request.method,
+    url: request.url,
+    requestId: request.id,
+  });
   return reply.code(500).send({
     error: "Internal server error",
     code: "INTERNAL_ERROR",
@@ -178,7 +186,7 @@ async function start() {
       info: {
         title: "ChronoShield API",
         description: "DST-aware datetime validation, resolution, and conversion API.\n\n**Need an API key?** [Get one free on the homepage](/) — no credit card required. Then click **Authorize** above and paste your key.",
-        version: "1.2.0",
+        version: "1.3.0",
       },
       servers: [
         { url: config.baseUrl, description: "Production" },
@@ -226,7 +234,7 @@ async function start() {
 
     return {
       status: "operational",
-      version: "1.2.0",
+      version: "1.3.0",
       uptime: `${days}d ${hours}h ${minutes}m`,
       uptime_seconds: uptimeSec,
       started_at: startedAt.toISOString(),
@@ -325,8 +333,18 @@ async function shutdown(signal: string) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  captureException(err, { source: "uncaughtException" });
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection:", reason);
+  captureException(reason, { source: "unhandledRejection" });
+});
+
 start().catch((err) => {
   console.error("Failed to start server:", err);
+  captureException(err, { source: "startup" });
   process.exit(1);
 });
 
