@@ -1,0 +1,132 @@
+{
+  "info": {
+    "name": "ChronoShield API",
+    "description": "DST-aware datetime validation, resolution, and conversion API.\n\nGet your free API key at https://chronoshieldapi.com\n\nDocs: https://chronoshieldapi.com/docs",
+    "_postman_id": "chronoshield-api-v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "x-api-key", "type": "string" },
+      { "key": "value", "value": "{{api_key}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://chronoshieldapi.com",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "YOUR_API_KEY",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"] }
+      }
+    },
+    {
+      "name": "Status",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/status", "host": ["{{base_url}}"], "path": ["status"] }
+      }
+    },
+    {
+      "name": "Validate — Valid datetime",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"local_datetime\": \"2026-07-15T14:30:00\",\n  \"time_zone\": \"America/New_York\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/validate", "host": ["{{base_url}}"], "path": ["v1", "datetime", "validate"] }
+      }
+    },
+    {
+      "name": "Validate — DST gap (invalid)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"local_datetime\": \"2026-03-08T02:30:00\",\n  \"time_zone\": \"America/New_York\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/validate", "host": ["{{base_url}}"], "path": ["v1", "datetime", "validate"] }
+      }
+    },
+    {
+      "name": "Validate — DST overlap (ambiguous)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"local_datetime\": \"2026-11-01T01:30:00\",\n  \"time_zone\": \"America/New_York\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/validate", "host": ["{{base_url}}"], "path": ["v1", "datetime", "validate"] }
+      }
+    },
+    {
+      "name": "Resolve — Ambiguous datetime",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"local_datetime\": \"2026-11-01T01:30:00\",\n  \"time_zone\": \"America/New_York\",\n  \"resolution_policy\": {\n    \"ambiguous\": \"earlier\",\n    \"invalid\": \"next_valid_time\"\n  }\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/resolve", "host": ["{{base_url}}"], "path": ["v1", "datetime", "resolve"] }
+      }
+    },
+    {
+      "name": "Resolve — DST gap (next valid time)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"local_datetime\": \"2026-03-08T02:30:00\",\n  \"time_zone\": \"America/New_York\",\n  \"resolution_policy\": {\n    \"invalid\": \"next_valid_time\"\n  }\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/resolve", "host": ["{{base_url}}"], "path": ["v1", "datetime", "resolve"] }
+      }
+    },
+    {
+      "name": "Convert — UTC to timezone",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"instant_utc\": \"2026-07-15T18:00:00Z\",\n  \"target_time_zone\": \"Asia/Tokyo\"\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/convert", "host": ["{{base_url}}"], "path": ["v1", "datetime", "convert"] }
+      }
+    },
+    {
+      "name": "Batch — Mixed operations",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    {\n      \"operation\": \"validate\",\n      \"local_datetime\": \"2026-03-08T02:30:00\",\n      \"time_zone\": \"America/New_York\"\n    },\n    {\n      \"operation\": \"convert\",\n      \"instant_utc\": \"2026-12-25T00:00:00Z\",\n      \"target_time_zone\": \"Europe/London\"\n    },\n    {\n      \"operation\": \"resolve\",\n      \"local_datetime\": \"2026-11-01T01:30:00\",\n      \"time_zone\": \"America/New_York\",\n      \"resolution_policy\": { \"ambiguous\": \"later\" }\n    }\n  ]\n}"
+        },
+        "url": { "raw": "{{base_url}}/v1/datetime/batch", "host": ["{{base_url}}"], "path": ["v1", "datetime", "batch"] }
+      }
+    }
+  ]
+}
