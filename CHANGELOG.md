@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Enterprise contact form** — replaced `mailto:` Contact Sales buttons with an inline modal form (`POST /api/contact`) backed by `contact_inquiries` database table with self-healing schema creation
 - **Email notifications** — contact form submissions now trigger email notifications to `sales@chronoshieldapi.com` via Resend SMTP (nodemailer)
 - **Request logging** — authenticated API requests are now persisted to the `request_logs` table (endpoint, method, status, latency, key ID) for usage analytics
-- **Admin endpoints** — `POST /api/admin/keys/revoke`, `POST /api/admin/keys/activate`, `GET /api/admin/keys` for key management, protected by master API key
+- **Admin endpoints** — `POST /api/admin/keys/revoke`, `POST /api/admin/keys/activate`, `POST /api/admin/keys/rotate`, `GET /api/admin/keys` for key management, protected by master API key
+- **Self-service key reset** — `POST /api/keys/reset-request` emails a signed HMAC recovery link; `POST /api/keys/reset-confirm` validates the token and issues a new key while invalidating the old one. Branded `/reset-key` landing page guards against email-scanner auto-triggering by requiring an explicit confirm click. Enumeration-safe (generic response whether email exists or not) and rate-limited (3 requests per 15 min per IP and per email).
 - **Lazy monthly usage reset** — `requestsUsed` automatically resets to 0 on the first request of a new month via `resetAt` field (no cron required)
 - **Per-IP rate limiting** on `/api/keys` — 10 requests per minute to prevent key generation abuse
 - **Security headers** — `Strict-Transport-Security`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`

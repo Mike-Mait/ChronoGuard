@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { config } from "../config/env";
 import { getPrisma } from "../db/client";
+import { rotateKeyByEmail } from "./keys";
 
 function isAdminAuthorized(request: any): boolean {
   const apiKey = request.headers["x-api-key"] as string | undefined;
@@ -195,6 +196,62 @@ export async function adminRoute(app: FastifyInstance) {
           error: "Internal error",
           code: "INTERNAL_ERROR",
           message: "Failed to list keys.",
+        });
+      }
+    }
+  );
+
+  // Rotate (regenerate) an API key by email. Used for support handoff when a
+  // customer has lost their key and verified their identity out-of-band.
+  // Returns the new raw key so support can send it to the verified owner.
+  app.post(
+    "/api/admin/keys/rotate",
+    { schema: { hide: true } },
+    async (request, reply) => {
+      if (!isAdminAuthorized(request)) {
+        return reply.code(403).send({
+          error: "Forbidden",
+          code: "FORBIDDEN",
+          message: "Admin access required.",
+        });
+      }
+
+      const { email } = request.body as { email?: string };
+      if (!email) {
+        return reply.code(400).send({
+          error: "Validation failed",
+          code: "VALIDATION_FAILED",
+          message: "Email is required.",
+        });
+      }
+
+      try {
+        const newKey = await rotateKeyByEmail(email);
+        if (!newKey) {
+          return reply.code(404).send({
+            error: "Not found",
+            code: "KEY_NOT_FOUND",
+            message: "No API key found for this email.",
+          });
+        }
+
+        request.log.info(
+          { email, requestId: request.id },
+          "API key rotated by admin"
+        );
+
+        return reply.send({
+          email,
+          api_key: newKey,
+          message:
+            "New key issued. The previous key is now invalid — share this key with the verified owner securely.",
+        });
+      } catch (err) {
+        request.log.error(err, "Failed to rotate API key");
+        return reply.code(500).send({
+          error: "Internal error",
+          code: "INTERNAL_ERROR",
+          message: "Failed to rotate key.",
         });
       }
     }

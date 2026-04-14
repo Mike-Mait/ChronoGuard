@@ -20,7 +20,17 @@ export const config = {
   contactNotifyEmail: process.env.CONTACT_NOTIFY_EMAIL || "sales@chronoshieldapi.com",
   sentryDsn: process.env.SENTRY_DSN || "",
   nodeEnv: process.env.NODE_ENV || "development",
+  resetTokenSecret: process.env.RESET_TOKEN_SECRET || "",
 };
+
+// Warn loudly in production if reset-token secret is missing. Falls back to
+// API_KEY so a rushed deploy doesn't break, but this is a degraded state.
+if (!config.resetTokenSecret && config.nodeEnv === "production") {
+  console.warn(
+    "[config] RESET_TOKEN_SECRET is not set. Falling back to API_KEY for reset tokens. Set a dedicated 32+ byte secret before handling real traffic."
+  );
+}
+export const resetTokenSigningKey = config.resetTokenSecret || config.apiKey || "dev-reset-secret-do-not-use-in-prod";
 
 // ─── Stripe singleton ───
 let stripeInstance: any = null;

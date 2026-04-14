@@ -23,6 +23,39 @@ function sanitizeForEmail(str: string): string {
   return str.replace(/[\r\n]/g, " ").trim();
 }
 
+export async function sendResetKeyEmail(
+  toEmail: string,
+  resetUrl: string
+): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield API" <support@chronoshieldapi.com>`,
+      to: toEmail,
+      subject: "[ChronoShield] Reset your API key",
+      text: [
+        `We received a request to reset the API key for this email address.`,
+        ``,
+        `To issue a new key (and invalidate your existing one), click the link below:`,
+        ``,
+        resetUrl,
+        ``,
+        `This link expires in 1 hour.`,
+        ``,
+        `If you did not request this, you can safely ignore this email — your existing key remains active.`,
+        ``,
+        `— ChronoShield API`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendContactNotification(inquiry: {
   plan: string;
   name: string;

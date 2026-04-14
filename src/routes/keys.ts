@@ -2,6 +2,8 @@ import { FastifyInstance } from "fastify";
 import crypto from "crypto";
 import { config, getStripe } from "../config/env";
 import { getPrisma } from "../db/client";
+import { createResetToken, verifyResetToken } from "../utils/resetTokens";
+import { sendResetKeyEmail } from "../utils/email";
 
 // ─── Types ───
 interface KeyEntry {
@@ -341,6 +343,85 @@ function checkKeyRateLimit(ip: string): boolean {
   return entry.count <= KEY_RATE_LIMIT;
 }
 
+// ─── Rate limiter for reset requests (stricter: prevent email-bomb abuse) ───
+const resetRequestCounts = new Map<string, { count: number; resetAt: number }>();
+const RESET_RATE_LIMIT = 3; // max requests per window
+const RESET_RATE_WINDOW_MS = 15 * 60_000; // 15 minutes
+
+function checkResetRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = resetRequestCounts.get(key);
+  if (!entry || now >= entry.resetAt) {
+    evictOldestIfNeeded(resetRequestCounts, MAX_CACHE_SIZE);
+    resetRequestCounts.set(key, { count: 1, resetAt: now + RESET_RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RESET_RATE_LIMIT;
+}
+
+// ─── Rotate a key by email: issues a fresh raw key, updates keyHash in DB,
+// refreshes memory/cache, and invalidates the old key. Returns the new raw
+// key, or null if no record exists for the email. Shared by the user-facing
+// reset flow and the admin handoff endpoint.
+export async function rotateKeyByEmail(email: string): Promise<string | null> {
+  const prisma = getPrisma();
+  const newKey = generateApiKey();
+  const newHash = hashKey(newKey);
+
+  if (prisma) {
+    try {
+      const existing = await prisma.apiKey.findUnique({ where: { email } });
+      if (!existing) return null;
+
+      await prisma.apiKey.update({
+        where: { email },
+        data: { keyHash: newHash },
+      });
+
+      // Refresh memory/cache: purge any stale entry for the old raw key
+      const prevMem = memoryKeyStore.get(email);
+      if (prevMem) {
+        memoryKeyIndex.delete(prevMem.apiKey);
+        keyCache.delete(prevMem.apiKey);
+      }
+
+      const entry: KeyEntry = {
+        id: existing.id,
+        email,
+        apiKey: newKey,
+        tier: existing.tier as "free" | "pro",
+        requestsUsed: existing.requestsUsed,
+        requestsLimit: existing.requestsLimit,
+        stripeCustomerId: existing.stripeCustomerId ?? undefined,
+        resetAt: existing.resetAt,
+        createdAt: existing.createdAt,
+      };
+      memoryKeyStore.set(email, entry);
+      memoryKeyIndex.set(newKey, email);
+      keyCache.set(newKey, entry);
+
+      return newKey;
+    } catch {
+      // fall through to memory-only path
+    }
+  }
+
+  // Memory-only rotation (DB unavailable or not configured)
+  const memEntry = memoryKeyStore.get(email);
+  if (!memEntry) return null;
+
+  memoryKeyIndex.delete(memEntry.apiKey);
+  keyCache.delete(memEntry.apiKey);
+
+  memEntry.apiKey = newKey;
+  memoryKeyStore.set(email, memEntry);
+  memoryKeyIndex.set(newKey, email);
+  keyCache.set(newKey, memEntry);
+
+  return newKey;
+}
+
 // ─── Route ───
 export async function keysRoute(app: FastifyInstance) {
   app.post(
@@ -506,6 +587,142 @@ export async function keysRoute(app: FastifyInstance) {
         api_key: apiKey,
         tier: "free",
         requests_limit: 1_000,
+      });
+    }
+  );
+
+  // ─── Reset: request a recovery link ───
+  // Always returns a generic success message to prevent email enumeration.
+  app.post(
+    "/api/keys/reset-request",
+    { schema: { hide: true } },
+    async (request, reply) => {
+      const { email } = request.body as { email?: string };
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || email.length > 254 || !emailRegex.test(email)) {
+        return reply.code(400).send({
+          error: "Validation failed",
+          code: "VALIDATION_FAILED",
+          message: "Provide a valid email address.",
+        });
+      }
+
+      const genericOk = {
+        message:
+          "If an account exists with that email, a recovery link has been sent. Check your inbox (and spam folder).",
+      };
+
+      // Rate limit per IP AND per email to prevent both enumeration-by-timing
+      // and inbox flooding.
+      const ipOk = checkResetRateLimit(`ip:${request.ip}`);
+      const emailOk = checkResetRateLimit(`email:${email.toLowerCase()}`);
+      if (!ipOk || !emailOk) {
+        // Return the same generic response so rate-limit state can't be
+        // used as an enumeration oracle.
+        request.log.warn(
+          { ip: request.ip, email, requestId: request.id },
+          "Key reset rate limit hit"
+        );
+        return reply.send(genericOk);
+      }
+
+      const prisma = getPrisma();
+      let exists = false;
+      if (prisma) {
+        try {
+          const record = await prisma.apiKey.findUnique({ where: { email } });
+          exists = !!record && record.active;
+        } catch {
+          exists = false;
+        }
+      } else {
+        exists = memoryKeyStore.has(email);
+      }
+
+      if (!exists) {
+        // Same generic response — don't leak existence
+        return reply.send(genericOk);
+      }
+
+      const token = createResetToken(email);
+      const resetUrl = `${config.baseUrl}/reset-key?token=${encodeURIComponent(token)}`;
+
+      const sent = await sendResetKeyEmail(email, resetUrl);
+      if (!sent) {
+        // Log the failure, but still return generic success so callers can't
+        // distinguish between "no account" and "mailer broken". Support can
+        // follow up manually via the admin rotate endpoint.
+        request.log.error(
+          { email, requestId: request.id },
+          "Failed to send reset email (SMTP not configured or send failed)"
+        );
+      } else {
+        request.log.info(
+          { email, requestId: request.id },
+          "Key reset email sent"
+        );
+      }
+
+      return reply.send(genericOk);
+    }
+  );
+
+  // ─── Reset: confirm with signed token, rotate the key ───
+  app.post(
+    "/api/keys/reset-confirm",
+    { schema: { hide: true } },
+    async (request, reply) => {
+      const { token } = request.body as { token?: string };
+      if (!token) {
+        return reply.code(400).send({
+          error: "Validation failed",
+          code: "VALIDATION_FAILED",
+          message: "Missing reset token.",
+        });
+      }
+
+      // Rate-limit per IP to throttle brute-force on the HMAC (extremely
+      // unlikely to succeed, but cheap defense-in-depth).
+      if (!checkResetRateLimit(`confirm:${request.ip}`)) {
+        return reply.code(429).send({
+          error: "Too many requests",
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Too many attempts. Please try again later.",
+        });
+      }
+
+      const result = verifyResetToken(token);
+      if (!result.ok || !result.email) {
+        const msg =
+          result.reason === "expired"
+            ? "This reset link has expired. Please request a new one."
+            : "This reset link is invalid.";
+        return reply.code(400).send({
+          error: "Invalid token",
+          code: result.reason === "expired" ? "TOKEN_EXPIRED" : "TOKEN_INVALID",
+          message: msg,
+        });
+      }
+
+      const newKey = await rotateKeyByEmail(result.email);
+      if (!newKey) {
+        // Account may have been revoked between token issue and use
+        return reply.code(404).send({
+          error: "Not found",
+          code: "KEY_NOT_FOUND",
+          message: "No API key is associated with this email.",
+        });
+      }
+
+      request.log.info(
+        { email: result.email, requestId: request.id },
+        "API key rotated via reset flow"
+      );
+
+      return reply.send({
+        api_key: newKey,
+        message:
+          "Your API key has been reset. Your previous key is now invalid — save this new one.",
       });
     }
   );

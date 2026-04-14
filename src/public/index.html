@@ -709,7 +709,22 @@ result = cg.validate(
         >
           Get API Key
         </button>
+        <p id="reset-link-row" class="mt-3 text-center text-xs text-slate-500">
+          Lost your key?
+          <a href="#" onclick="switchToResetMode(event)" class="text-slate-400 hover:text-brand-300 underline transition-colors">Reset it via email</a>
+        </p>
       </form>
+
+      <!-- Reset-request confirmation -->
+      <div id="reset-sent" class="hidden mt-4">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <span class="text-sm font-medium text-emerald-400">Check your email</span>
+        </div>
+        <p class="text-sm text-slate-400" id="reset-sent-msg">
+          If an account exists with that email, we've sent a reset link. It expires in 1 hour.
+        </p>
+      </div>
 
       <!-- Success state -->
       <div id="key-success" class="hidden mt-4">
@@ -721,7 +736,13 @@ result = cg.validate(
           <code id="api-key-display" class="code-block flex-1 px-4 py-3 rounded-lg bg-slate-800 border border-slate-700 text-sm text-brand-300 overflow-x-auto"></code>
           <button onclick="copyKey()" id="copy-btn" class="shrink-0 px-3 py-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-400 text-sm transition-colors cursor-pointer">Copy</button>
         </div>
-        <p class="mt-3 text-xs text-slate-500">Save this key &mdash; it won't be shown again.</p>
+        <div class="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex gap-2.5 text-xs text-amber-100/90">
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <div>
+            <p class="font-semibold text-amber-200">Save this key now</p>
+            <p class="mt-0.5">This is the only time it will be shown. We store only a hash &mdash; if you lose it, you'll need to <a href="#" onclick="openResetFromSuccess(event)" class="underline hover:text-amber-50">reset it via email</a>.</p>
+          </div>
+        </div>
       </div>
 
       <!-- Redirect for Pro -->
@@ -851,11 +872,17 @@ result = cg.validate(
     }
 
     /* ── Modal ── */
+    // Current modal mode: 'free' | 'pro' | 'reset'
+    let modalMode = 'free';
+
     function openModal(tier) {
+      modalMode = tier;
       document.getElementById('form-tier').value = tier;
       document.getElementById('key-form').classList.remove('hidden');
       document.getElementById('key-success').classList.add('hidden');
       document.getElementById('pro-redirect').classList.add('hidden');
+      document.getElementById('reset-sent').classList.add('hidden');
+      document.getElementById('reset-link-row').classList.remove('hidden');
       document.getElementById('email-input').value = '';
 
       if (tier === 'pro') {
@@ -874,6 +901,26 @@ result = cg.validate(
       document.getElementById('email-input').focus();
     }
 
+    function switchToResetMode(e) {
+      if (e) e.preventDefault();
+      modalMode = 'reset';
+      document.getElementById('modal-title').textContent = 'Reset your API key';
+      document.getElementById('modal-desc').textContent = "Enter the email associated with your account and we'll send you a reset link.";
+      document.getElementById('submit-btn').textContent = 'Send reset link';
+      document.getElementById('key-success').classList.add('hidden');
+      document.getElementById('reset-sent').classList.add('hidden');
+      document.getElementById('key-form').classList.remove('hidden');
+      document.getElementById('reset-link-row').classList.add('hidden');
+      document.getElementById('email-input').value = '';
+      document.getElementById('email-input').focus();
+    }
+
+    // Called from the "reset it via email" link in the post-issuance success panel.
+    function openResetFromSuccess(e) {
+      if (e) e.preventDefault();
+      switchToResetMode();
+    }
+
     function closeModal() {
       const overlay = document.getElementById('modal-overlay');
       overlay.classList.add('hidden');
@@ -890,10 +937,27 @@ result = cg.validate(
       const email = document.getElementById('email-input').value;
       const tier = document.getElementById('form-tier').value;
       const btn = document.getElementById('submit-btn');
+      const wasMode = modalMode;
       btn.disabled = true;
       btn.textContent = 'Please wait...';
 
       try {
+        if (wasMode === 'reset') {
+          const res = await fetch('/api/keys/reset-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Something went wrong');
+
+          document.getElementById('key-form').classList.add('hidden');
+          document.getElementById('reset-link-row').classList.add('hidden');
+          document.getElementById('reset-sent').classList.remove('hidden');
+          if (data.message) document.getElementById('reset-sent-msg').textContent = data.message;
+          return;
+        }
+
         const res = await fetch('/api/keys', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -911,18 +975,25 @@ result = cg.validate(
           window.location.href = data.checkout_url;
         } else if (data.api_key) {
           document.getElementById('key-form').classList.add('hidden');
+          document.getElementById('reset-link-row').classList.add('hidden');
           document.getElementById('key-success').classList.remove('hidden');
           document.getElementById('api-key-display').textContent = data.api_key;
         } else {
           // Key exists but can't be shown (server restarted)
           document.getElementById('key-form').classList.add('hidden');
+          document.getElementById('reset-link-row').classList.add('hidden');
           document.getElementById('modal-desc').textContent = data.message;
         }
       } catch (err) {
         alert(err.message);
       } finally {
         btn.disabled = false;
-        btn.textContent = tier === 'pro' ? 'Continue to Checkout' : 'Get API Key';
+        btn.textContent =
+          wasMode === 'reset'
+            ? 'Send reset link'
+            : wasMode === 'pro'
+              ? 'Continue to Checkout'
+              : 'Get API Key';
       }
     }
 

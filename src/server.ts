@@ -34,7 +34,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo"];
+const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -280,7 +280,7 @@ async function start() {
 
   // Pre-load static HTML files into memory
   const htmlCache: Record<string, string> = {};
-  for (const page of ["index", "docs", "terms", "privacy", "aup"]) {
+  for (const page of ["index", "docs", "terms", "privacy", "aup", "reset-key"]) {
     htmlCache[page] = fs.readFileSync(path.join(__dirname, "public", `${page}.html`), "utf-8");
   }
 
@@ -316,6 +316,11 @@ async function start() {
   // Acceptable Use Policy
   app.get("/aup", { schema: { hide: true } }, async (_request, reply) => {
     return reply.type("text/html").send(htmlCache.aup);
+  });
+
+  // API key reset landing page (served when users click the emailed link)
+  app.get("/reset-key", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["reset-key"]);
   });
 
   // Security.txt (IETF RFC 9116)
