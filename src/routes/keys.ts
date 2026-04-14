@@ -647,18 +647,19 @@ export async function keysRoute(app: FastifyInstance) {
       const token = createResetToken(email);
       const resetUrl = `${config.baseUrl}/reset-key?token=${encodeURIComponent(token)}`;
 
-      const sent = await sendResetKeyEmail(email, resetUrl);
-      if (!sent) {
-        // Log the failure, but still return generic success so callers can't
-        // distinguish between "no account" and "mailer broken". Support can
-        // follow up manually via the admin rotate endpoint.
+      const sendResult = await sendResetKeyEmail(email, resetUrl);
+      if (!sendResult.ok) {
+        // Log the real error so it's visible in Railway deploy logs. Still
+        // returns generic success to the caller so they can't distinguish
+        // "no account" from "mailer broken". Support can follow up manually
+        // via the admin rotate endpoint.
         request.log.error(
-          { email, requestId: request.id },
-          "Failed to send reset email (SMTP not configured or send failed)"
+          { email, requestId: request.id, smtpError: sendResult.error },
+          "Failed to send reset email"
         );
       } else {
         request.log.info(
-          { email, requestId: request.id },
+          { email, requestId: request.id, messageId: sendResult.error },
           "Key reset email sent"
         );
       }

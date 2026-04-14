@@ -26,14 +26,24 @@ function sanitizeForEmail(str: string): string {
 export async function sendResetKeyEmail(
   toEmail: string,
   resetUrl: string
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   const mailer = getTransporter();
-  if (!mailer) return false;
+  if (!mailer) {
+    return {
+      ok: false,
+      error: "SMTP transporter not configured (missing SMTP_HOST or SMTP_USER)",
+    };
+  }
 
   try {
-    await mailer.sendMail({
-      from: `"ChronoShield API" <support@chronoshieldapi.com>`,
+    const info = await mailer.sendMail({
+      // Use the same verified sender the contact-form path uses, with a
+      // display name. Resend verifies the whole domain, but the API key may
+      // still be scoped to a specific sender — matching sendContactNotification
+      // avoids that class of issue.
+      from: `"ChronoShield API" <${config.smtpFrom}>`,
       to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
       subject: "[ChronoShield] Reset your API key",
       text: [
         `We received a request to reset the API key for this email address.`,
@@ -50,9 +60,14 @@ export async function sendResetKeyEmail(
         `https://chronoshieldapi.com`,
       ].join("\n"),
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true, error: (info as any)?.messageId };
+  } catch (err: any) {
+    // Surface the real error so the caller can log it. Helps diagnose Resend
+    // rejections (bad sender, quota exceeded, etc.) in production.
+    return {
+      ok: false,
+      error: err?.response || err?.message || String(err),
+    };
   }
 }
 
