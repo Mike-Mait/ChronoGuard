@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { config, getStripe } from "../config/env";
 import { getPrisma } from "../db/client";
 import { createResetToken, verifyResetToken } from "../utils/resetTokens";
-import { sendResetKeyEmail } from "../utils/email";
+import { sendResetKeyEmail, sendWelcomeFreeEmail } from "../utils/email";
 import { captureException } from "../config/sentry";
 
 // ─── Types ───
@@ -595,6 +595,13 @@ export async function keysRoute(app: FastifyInstance) {
           message: "Existing key returned.",
         });
       }
+
+      // Fire-and-forget welcome email for brand-new free signups. Never
+      // block the response on SMTP — if it fails we log it and move on.
+      // Only sent when isExisting === false (above branch handles re-fetch).
+      sendWelcomeFreeEmail(email).catch((err) =>
+        request.log.warn(err, "Failed to send free-tier welcome email")
+      );
 
       return reply.send({
         api_key: apiKey,

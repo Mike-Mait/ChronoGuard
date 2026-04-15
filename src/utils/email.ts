@@ -71,6 +71,101 @@ export async function sendResetKeyEmail(
   }
 }
 
+// ─── Welcome email: free-tier signup ───
+// Sent on NEW free-key issue only (not on re-fetch of an existing key).
+// Fire-and-forget from the caller — a broken SMTP must never block key
+// issuance. Deliberately does NOT include the raw API key: the UI modal
+// already shows it with a "save this now" warning, and duplicating it in
+// a long-lived inbox softens that urgency. Reset flow exists as recovery.
+export async function sendWelcomeFreeEmail(toEmail: string): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "Welcome to ChronoShield API",
+      text: [
+        `Hi,`,
+        ``,
+        `Thanks for signing up for a free ChronoShield API key — we genuinely appreciate you choosing ChronoShield to handle DST-aware datetime validation in your application.`,
+        ``,
+        `What the free tier includes:`,
+        `  • 1,000 requests per month`,
+        `  • Full access to validate, resolve, convert, and batch endpoints`,
+        `  • DST gap and overlap detection across all IANA time zones`,
+        ``,
+        `Getting started:`,
+        `  • API reference:  https://chronoshieldapi.com/docs`,
+        `  • Interactive playground:  https://chronoshieldapi.com/docs/playground`,
+        `  • Pass your key via the x-api-key header on every request`,
+        ``,
+        `Lost your key? You can reset it from the homepage using this email address — we'll send you a one-time link.`,
+        ``,
+        `If you have any questions, feedback, or run into anything unexpected, just reply to this email. A real person reads them.`,
+        ``,
+        `— The ChronoShield Team`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch (err: any) {
+    console.error(
+      "[sendWelcomeFreeEmail] SMTP send failed:",
+      err?.response || err?.message || err
+    );
+    return false;
+  }
+}
+
+// ─── Welcome email: Pro upgrade ───
+// Sent from the Stripe webhook after checkout.session.completed and after
+// upgradeToProByEmail has persisted the tier change. Fire-and-forget for
+// the same reason as the free-tier version — never 500 a Stripe webhook
+// just because the mailer is grumpy. Stripe's own receipt email covers
+// the billing/invoice side; this one is the human thank-you.
+export async function sendWelcomeProEmail(toEmail: string): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "Welcome to ChronoShield Pro",
+      text: [
+        `Hi,`,
+        ``,
+        `Thank you for upgrading to ChronoShield Pro. We truly appreciate your support — paying customers are what let us keep investing in the service, and it means a lot.`,
+        ``,
+        `Your plan now includes:`,
+        `  • 100,000 requests per month`,
+        `  • Priority support (reply to this email and you'll jump the queue)`,
+        `  • Same API and same key — just with more room to scale`,
+        ``,
+        `A billing receipt for your subscription will arrive separately from Stripe. You can manage your subscription (update card, view invoices, cancel anytime) from any Stripe receipt's customer-portal link.`,
+        ``,
+        `If anything comes up — integration questions, feature requests, or something weird in the API — just reply here. You'll get a real person, not a ticketing bot.`,
+        ``,
+        `Thanks again for choosing ChronoShield.`,
+        ``,
+        `— The ChronoShield Team`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch (err: any) {
+    console.error(
+      "[sendWelcomeProEmail] SMTP send failed:",
+      err?.response || err?.message || err
+    );
+    return false;
+  }
+}
+
 export async function sendContactNotification(inquiry: {
   plan: string;
   name: string;

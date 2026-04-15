@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { config, getStripe } from "../config/env";
 import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
+import { sendWelcomeProEmail } from "../utils/email";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -56,6 +57,15 @@ export async function webhooksRoute(app: FastifyInstance) {
           if (email) {
             await upgradeToProByEmail(email, customerId);
             request.log.info({ email, customerId }, "User upgraded to Pro tier");
+
+            // Fire-and-forget Pro welcome email. Sent AFTER the upgrade
+            // has persisted so the thank-you can't land before the tier
+            // bump takes effect. Never throws — a broken SMTP must not
+            // cause us to return non-2xx to Stripe (which would trigger
+            // retries and could double-upgrade the customer).
+            sendWelcomeProEmail(email).catch((err) =>
+              request.log.warn(err, "Failed to send Pro welcome email")
+            );
           } else {
             request.log.warn({ sessionId: session.id }, "checkout.session.completed missing email");
           }
