@@ -200,15 +200,20 @@ export async function upgradeToProByEmail(email: string, stripeCustomerId: strin
 // Called from Stripe webhook for subscription cancellation, refund, or
 // payment failure. Like upgradeToProByEmail, DB errors are NOT swallowed —
 // the webhook needs to know whether the downgrade actually persisted so
-// Stripe can retry. Returning `false` from a silent catch would let a
-// cancelled customer keep Pro tier indefinitely on a DB blip.
-export async function downgradeToFreeByStripeCustomerId(stripeCustomerId: string): Promise<boolean> {
+// Stripe can retry. Returning `{ ok: false }` from a silent catch would
+// let a cancelled customer keep Pro tier indefinitely on a DB blip.
+//
+// Returns the email on success so callers can send follow-up mail (e.g.
+// a cancellation thank-you) without a second DB round trip.
+export async function downgradeToFreeByStripeCustomerId(
+  stripeCustomerId: string
+): Promise<{ ok: boolean; email?: string }> {
   const prisma = getPrisma();
   if (prisma) {
     const record = await prisma.apiKey.findFirst({
       where: { stripeCustomerId },
     });
-    if (!record) return false;
+    if (!record) return { ok: false };
 
     await prisma.apiKey.update({
       where: { email: record.email },
@@ -230,11 +235,11 @@ export async function downgradeToFreeByStripeCustomerId(stripeCustomerId: string
       }
     }
 
-    return true;
+    return { ok: true, email: record.email };
   }
 
   // DB not configured (local dev only): search in-memory store.
-  for (const [, entry] of memoryKeyStore) {
+  for (const [email, entry] of memoryKeyStore) {
     if (entry.stripeCustomerId === stripeCustomerId) {
       entry.tier = "free";
       entry.requestsLimit = 1_000;
@@ -243,11 +248,11 @@ export async function downgradeToFreeByStripeCustomerId(stripeCustomerId: string
         cached.tier = "free";
         cached.requestsLimit = 1_000;
       }
-      return true;
+      return { ok: true, email };
     }
   }
 
-  return false;
+  return { ok: false };
 }
 
 // ─── Create or retrieve a key ───
@@ -266,20 +271,20 @@ async function createOrGetKey(
 ): Promise<CreateKeyResult> {
   const prisma = getPrisma();
 
-  // Check Prisma first. If DB is configured and these ops fail, we let the
-  // error propagate — issuing a memory-only key is exactly the bug that
-  // created ghost keys which vanished on every Railway restart. Better to
-  // surface a 500 to the client so they can retry.
+  // SECURITY: for any existing email, NEVER return the raw API key.
+  //
+  // Attack this guards against: an adversary who knows a target's email
+  // (trivial) submits it to /api/keys and, if the victim's key was in
+  // memoryKeyStore (populated on creation/rotation within the current
+  // server process), the server would return the live key in the JSON
+  // response. That's a credential-disclosure bug.
+  //
+  // The only way to recover a lost key is the self-service reset flow,
+  // which requires the user to click a link sent to the registered email
+  // address — i.e. proof they actually control that inbox.
   if (prisma) {
     const existing = await prisma.apiKey.findUnique({ where: { email } });
     if (existing) {
-      // Can't recover the raw key from hash — so we check memory
-      const memEntry = memoryKeyStore.get(email);
-      if (memEntry) {
-        return { apiKey: memEntry.apiKey, isExisting: true, entry: memEntry };
-      }
-      // Key exists in DB but not in memory (server restarted).
-      // Don't regenerate — that would invalidate the user's saved key.
       return {
         apiKey: null,
         isExisting: true,
@@ -290,10 +295,18 @@ async function createOrGetKey(
       };
     }
   } else {
-    // DB not configured (local dev only): check memory.
-    const memExisting = memoryKeyStore.get(email);
-    if (memExisting) {
-      return { apiKey: memExisting.apiKey, isExisting: true, entry: memExisting };
+    // DB not configured (local dev only): check memory for existence only,
+    // never leak the stored raw key.
+    if (memoryKeyStore.has(email)) {
+      const memEntry = memoryKeyStore.get(email)!;
+      return {
+        apiKey: null,
+        isExisting: true,
+        entry: null,
+        dbTier: memEntry.tier,
+        dbRequestsLimit: memEntry.requestsLimit,
+        dbStripeCustomerId: memEntry.stripeCustomerId,
+      };
     }
   }
 
@@ -469,22 +482,29 @@ export async function keysRoute(app: FastifyInstance) {
         (tier as "free" | "pro") || "free"
       );
 
-      // Key exists in DB but can't be recovered (server restarted)
-      if (result.isExisting && result.apiKey === null) {
+      // Existing-email path: createOrGetKey never returns a raw key for an
+      // email that's already registered (security: prevents harvesting a
+      // live key by knowing a victim's email address). Always apiKey ===
+      // null here when isExisting === true.
+      if (result.isExisting) {
         if (tier === "pro") {
           // Block if already on Pro
           if (result.dbTier === "pro") {
             return reply.send({
               tier: "pro",
-              message: "This account is already subscribed to Pro. Use the API key you were given when you first signed up.",
+              message:
+                "This account is already subscribed to Pro. If you've lost your API key, use the 'Lost your key?' reset link on the homepage.",
             });
           }
 
-          // Still allow Pro upgrade — webhook upgrades by email
+          // Allow Pro upgrade for an existing free key. The webhook
+          // upgrades by email (same keyHash, so the user's existing key
+          // stays valid — we just flip the tier + limit).
           if (!config.stripeSecretKey) {
             return reply.send({
               tier: result.dbTier,
-              message: "Payment processing not configured. Use the API key you were given when you first signed up.",
+              message:
+                "Payment processing not configured. If you've lost your API key, use the 'Lost your key?' reset link on the homepage.",
             });
           }
 
@@ -520,13 +540,17 @@ export async function keysRoute(app: FastifyInstance) {
           }
         }
 
+        // Free-tier re-request for an existing email. Do NOT return the
+        // key — tell them to use the reset flow.
         return reply.send({
           tier: result.dbTier,
           requests_limit: result.dbRequestsLimit,
-          message: "A key already exists for this email. Use the API key you were given when you first signed up.",
+          message:
+            "A key already exists for this email. For security, we never re-display an existing key. If you've lost yours, use the 'Lost your key?' reset link on the homepage to receive a new one via email.",
         });
       }
 
+      // Brand-new key path — apiKey is guaranteed non-null here.
       const { apiKey, isExisting, entry } = result as {
         apiKey: string;
         isExisting: boolean;
@@ -586,19 +610,14 @@ export async function keysRoute(app: FastifyInstance) {
         }
       }
 
-      // Free tier
-      if (isExisting) {
-        return reply.send({
-          api_key: apiKey,
-          tier: entry.tier,
-          requests_limit: entry.requestsLimit,
-          message: "Existing key returned.",
-        });
-      }
+      // Free tier, brand-new signup. (isExisting === true is handled in
+      // the security-fenced branch higher up — we never reach this with an
+      // existing email.) `entry` is available for parity with the pro
+      // path in case future metadata lands in the response.
+      void entry;
 
       // Fire-and-forget welcome email for brand-new free signups. Never
       // block the response on SMTP — if it fails we log it and move on.
-      // Only sent when isExisting === false (above branch handles re-fetch).
       sendWelcomeFreeEmail(email).catch((err) =>
         request.log.warn(err, "Failed to send free-tier welcome email")
       );

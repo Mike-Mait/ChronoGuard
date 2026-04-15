@@ -103,6 +103,27 @@ async function main() {
   });
   console.log("11. Admin rotate (wrong key) status:", r.statusCode);
 
+  // 12. SECURITY REGRESSION: re-submitting an existing email to /api/keys
+  // must NOT return the raw API key. This was a credential-disclosure bug
+  // in the memory-fallback path — if it ever resurfaces, this assertion
+  // will scream.
+  r = await app.inject({
+    method: "POST",
+    url: "/api/keys",
+    payload: { email, tier: "free" },
+  });
+  const reFetch = JSON.parse(r.body);
+  const leaked = !!reFetch.api_key;
+  console.log(
+    "12. Re-fetch existing email does NOT leak key:",
+    !leaked,
+    leaked ? `(LEAKED: ${reFetch.api_key.slice(0, 16)}...)` : `(message: "${(reFetch.message || "").slice(0, 60)}...")`
+  );
+  if (leaked) {
+    console.error("FATAL: /api/keys returned a raw key for an existing email. This is a credential-disclosure bug. See createOrGetKey.");
+    process.exit(1);
+  }
+
   await app.close();
 }
 

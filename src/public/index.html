@@ -672,12 +672,19 @@ result = cg.validate(
   <footer class="border-t border-slate-800/50 py-8">
     <div class="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
       <div class="flex flex-col items-center sm:items-start gap-1">
+        <!-- Live status chip: reads from /status on page load. Links to the
+             public betteruptime page for historical uptime/incident detail. -->
+        <a href="https://chronoshield-api.betteruptime.com"
+           id="status-chip"
+           class="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <span id="status-dot" class="inline-block w-2 h-2 rounded-full bg-slate-600"></span>
+          <span id="status-text" class="text-slate-500">Checking status…</span>
+        </a>
         <span>&copy; 2026 ChronoShield API. All rights reserved.</span>
         <a href="mailto:info@chronoshieldapi.com" class="hover:text-slate-400 transition-colors">info@chronoshieldapi.com</a>
       </div>
       <div class="flex gap-6">
         <a href="/docs" class="hover:text-slate-400 transition-colors">API Docs</a>
-        <a href="https://chronoshield-api.betteruptime.com" class="hover:text-slate-400 transition-colors">Status</a>
         <a href="https://github.com/Mike-Mait/ChronoShield-API/blob/master/CHANGELOG.md" class="hover:text-slate-400 transition-colors">Changelog</a>
         <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-400 transition-colors">GitHub</a>
         <a href="/terms" class="hover:text-slate-400 transition-colors">Terms</a>
@@ -685,6 +692,45 @@ result = cg.validate(
       </div>
     </div>
   </footer>
+
+  <!-- Live status polling: hits /status once on page load. Deliberately
+       fail-quiet — a fetch error shows a neutral "Status unavailable"
+       chip, never a scary red error for a transient blip. -->
+  <script>
+    (async () => {
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+      if (!dot || !text) return;
+
+      try {
+        const res = await fetch('/status', { cache: 'no-store' });
+        if (!res.ok) throw new Error('status check failed');
+        const data = await res.json();
+
+        const dbOk = data.database === 'connected' || data.database === 'not_configured';
+        const operational = data.status === 'operational' && dbOk;
+        const degraded = data.status === 'operational' && data.database === 'error';
+
+        if (operational) {
+          dot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          text.textContent = 'All systems operational';
+          text.className = 'text-emerald-400';
+        } else if (degraded) {
+          dot.className = 'inline-block w-2 h-2 rounded-full bg-amber-400';
+          text.textContent = 'Degraded performance';
+          text.className = 'text-amber-400';
+        } else {
+          dot.className = 'inline-block w-2 h-2 rounded-full bg-rose-400';
+          text.textContent = 'Issues detected';
+          text.className = 'text-rose-400';
+        }
+      } catch {
+        dot.className = 'inline-block w-2 h-2 rounded-full bg-slate-600';
+        text.textContent = 'Status unavailable';
+        text.className = 'text-slate-500';
+      }
+    })();
+  </script>
 
   <!-- ─── EMAIL MODAL ─── -->
   <div id="modal-overlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">

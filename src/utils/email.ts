@@ -166,6 +166,53 @@ export async function sendWelcomeProEmail(toEmail: string): Promise<boolean> {
   }
 }
 
+// ─── Cancellation / downgrade email: Pro → Free ───
+// Sent from the Stripe webhook on customer.subscription.deleted, after
+// downgradeToFreeByStripeCustomerId has persisted the tier change.
+// Deliberately warm-toned (no "sorry to see you go" guilt-trip, no
+// desperate win-back offer) — a genuine thank-you is better retention
+// than a pushy retention email. Same API key keeps working at free-tier
+// limits; we want that to be the clear, reassuring message.
+export async function sendSubscriptionCancelledEmail(toEmail: string): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "Your ChronoShield Pro subscription has been cancelled",
+      text: [
+        `Hi,`,
+        ``,
+        `Your ChronoShield Pro subscription has been cancelled as requested. Thank you for being a Pro customer — it genuinely meant a lot to have your support.`,
+        ``,
+        `A few things worth knowing:`,
+        `  • Your API key still works — it's now on the free tier (1,000 requests/month).`,
+        `  • No action needed from you. The same x-api-key header keeps working.`,
+        `  • Any usage above the free-tier limit will return 429 until your monthly quota resets.`,
+        ``,
+        `If you ever want to come back, just visit https://chronoshieldapi.com and upgrade again with the same email — your key stays the same.`,
+        ``,
+        `And if something about the service didn't work for you, I'd genuinely love to hear why — just reply to this email. Honest feedback (even harsh feedback) is the most useful thing you can send us.`,
+        ``,
+        `Thanks again for giving ChronoShield a try.`,
+        ``,
+        `— The ChronoShield Team`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch (err: any) {
+    console.error(
+      "[sendSubscriptionCancelledEmail] SMTP send failed:",
+      err?.response || err?.message || err
+    );
+    return false;
+  }
+}
+
 export async function sendContactNotification(inquiry: {
   plan: string;
   name: string;

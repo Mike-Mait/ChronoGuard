@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { config, getStripe } from "../config/env";
 import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
-import { sendWelcomeProEmail } from "../utils/email";
+import { sendWelcomeProEmail, sendSubscriptionCancelledEmail } from "../utils/email";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -74,19 +74,30 @@ export async function webhooksRoute(app: FastifyInstance) {
 
         case "customer.subscription.deleted": {
           const customerId = event.data.object.customer;
-          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
+          const result = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
-            { customer: customerId, downgraded },
+            { customer: customerId, downgraded: result.ok },
             "Subscription cancelled — downgraded to free tier"
           );
+
+          // Fire-and-forget thank-you email. Only sent for explicit
+          // subscription cancellation — NOT for payment_failed (that's a
+          // different, more urgent comms path: "update your card") and
+          // NOT for charge.refunded (the refund receipt from Stripe is
+          // the appropriate ack there).
+          if (result.ok && result.email) {
+            sendSubscriptionCancelledEmail(result.email).catch((err) =>
+              request.log.warn(err, "Failed to send cancellation email")
+            );
+          }
           break;
         }
 
         case "charge.refunded": {
           const customerId = event.data.object.customer;
-          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
+          const result = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
-            { customer: customerId, downgraded },
+            { customer: customerId, downgraded: result.ok },
             "Charge refunded — downgraded to free tier"
           );
           break;
@@ -94,9 +105,9 @@ export async function webhooksRoute(app: FastifyInstance) {
 
         case "invoice.payment_failed": {
           const customerId = event.data.object.customer;
-          const downgraded = await downgradeToFreeByStripeCustomerId(customerId);
+          const result = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
-            { customer: customerId, downgraded },
+            { customer: customerId, downgraded: result.ok },
             "Payment failed — downgraded to free tier"
           );
           break;
