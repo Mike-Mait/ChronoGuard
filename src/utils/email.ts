@@ -71,6 +71,59 @@ export async function sendResetKeyEmail(
   }
 }
 
+// ─── Billing portal link email ───
+// Sent when a Pro subscriber requests a subscription-management link via
+// /api/billing/portal-request. Mirrors the reset-key flow: the email
+// carries a signed HMAC token that, when clicked, opens a Stripe Customer
+// Portal session for self-service billing (cancel, update card, view
+// invoices). Sent from the support address so it matches the rest of the
+// account-comms traffic the user has already received.
+//
+// Not sent to non-Pro accounts — the caller gates on tier before invoking
+// this. The endpoint itself always returns the same generic response to
+// avoid leaking which emails correspond to Pro subscribers.
+export async function sendBillingPortalEmail(
+  toEmail: string,
+  portalUrl: string
+): Promise<{ ok: boolean; error?: string }> {
+  const mailer = getTransporter();
+  if (!mailer) {
+    return {
+      ok: false,
+      error: "SMTP transporter not configured (missing SMTP_HOST or SMTP_USER)",
+    };
+  }
+
+  try {
+    const info = await mailer.sendMail({
+      from: `"ChronoShield Support" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "[ChronoShield] Manage your subscription",
+      text: [
+        `We received a request to manage the subscription for this email address.`,
+        ``,
+        `Click the link below to open a secure self-service portal where you can update your payment method, view invoices, or cancel your subscription:`,
+        ``,
+        portalUrl,
+        ``,
+        `This link expires in 1 hour.`,
+        ``,
+        `If you did not request this, you can safely ignore this email — no changes have been made to your account.`,
+        ``,
+        `— ChronoShield API`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return { ok: true, error: (info as any)?.messageId };
+  } catch (err: any) {
+    return {
+      ok: false,
+      error: err?.response || err?.message || String(err),
+    };
+  }
+}
+
 // ─── Welcome email: free-tier signup ───
 // Sent on NEW free-key issue only (not on re-fetch of an existing key).
 // Fire-and-forget from the caller — a broken SMTP must never block key

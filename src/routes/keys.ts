@@ -7,10 +7,15 @@ import { sendResetKeyEmail, sendWelcomeFreeEmail } from "../utils/email";
 import { captureException } from "../config/sentry";
 
 // ─── Types ───
+// Deliberately does NOT carry the raw apiKey. Raw keys live only as the
+// *keys* of memoryKeyIndex and keyCache (where they must, to support O(1)
+// lookup by key string), never as *values* of any map. Defense-in-depth:
+// if a future bug accidentally serializes a KeyEntry over the wire — e.g.
+// a careless reply.send(entry) — the blast radius is metadata, not a live
+// credential. See createOrGetKey for the matching storage discipline.
 interface KeyEntry {
   id?: string;
   email: string;
-  apiKey: string;
   tier: "free" | "pro";
   requestsUsed: number;
   requestsLimit: number;
@@ -39,6 +44,20 @@ function evictOldestIfNeeded<K, V>(map: Map<K, V>, limit: number): void {
     const oldest = map.keys().next().value!;
     map.delete(oldest);
   }
+}
+
+// Reverse lookup: given an email, find the raw apiKey currently mapped to
+// it in the in-memory index. Linear scan over memoryKeyIndex (small: capped
+// at MAX_CACHE_SIZE), which is fine because the callers are rare
+// event-driven paths — rotation, upgrade, downgrade — not the auth hot
+// path. Preferred over adding a second email→apiKey map because that
+// inverse index has to stay in sync across every rotation, and sync bugs
+// there are exactly how stale cache entries became usable in the past.
+function findApiKeyForEmail(email: string): string | null {
+  for (const [rawKey, mappedEmail] of memoryKeyIndex) {
+    if (mappedEmail === email) return rawKey;
+  }
+  return null;
 }
 
 // ─── Key generation ───
@@ -76,7 +95,6 @@ export async function lookupKeyAsync(apiKey: string): Promise<KeyEntry | null> {
       return {
         id: record.id,
         email: record.email,
-        apiKey, // we don't store the raw key, but the caller already has it
         tier: record.tier as "free" | "pro",
         requestsUsed,
         requestsLimit: record.requestsLimit,
@@ -181,13 +199,16 @@ export async function upgradeToProByEmail(email: string, stripeCustomerId: strin
   }
 
   // Also update memory/cache (no-op if this email has no in-memory entry
-  // yet — the next lookup will hydrate from DB).
+  // yet — the next lookup will hydrate from DB). keyCache is keyed by the
+  // raw apiKey, which we no longer store on the entry itself — look it up
+  // via the reverse index.
   const entry = memoryKeyStore.get(email);
   if (entry) {
     entry.tier = "pro";
     entry.requestsLimit = 100_000;
     entry.stripeCustomerId = stripeCustomerId;
-    const cached = keyCache.get(entry.apiKey);
+    const rawKey = findApiKeyForEmail(email);
+    const cached = rawKey ? keyCache.get(rawKey) : null;
     if (cached) {
       cached.tier = "pro";
       cached.requestsLimit = 100_000;
@@ -223,12 +244,15 @@ export async function downgradeToFreeByStripeCustomerId(
       },
     });
 
-    // Also update memory/cache
+    // Also update memory/cache. keyCache is keyed by the raw apiKey, which
+    // we no longer store on the entry itself — look it up via the reverse
+    // index.
     const entry = memoryKeyStore.get(record.email);
     if (entry) {
       entry.tier = "free";
       entry.requestsLimit = 1_000;
-      const cached = keyCache.get(entry.apiKey);
+      const rawKey = findApiKeyForEmail(record.email);
+      const cached = rawKey ? keyCache.get(rawKey) : null;
       if (cached) {
         cached.tier = "free";
         cached.requestsLimit = 1_000;
@@ -243,7 +267,8 @@ export async function downgradeToFreeByStripeCustomerId(
     if (entry.stripeCustomerId === stripeCustomerId) {
       entry.tier = "free";
       entry.requestsLimit = 1_000;
-      const cached = keyCache.get(entry.apiKey);
+      const rawKey = findApiKeyForEmail(email);
+      const cached = rawKey ? keyCache.get(rawKey) : null;
       if (cached) {
         cached.tier = "free";
         cached.requestsLimit = 1_000;
@@ -315,7 +340,6 @@ async function createOrGetKey(
   const resetAt = getNextResetDate();
   const entry: KeyEntry = {
     email,
-    apiKey,
     tier: "free", // start as free until payment
     requestsUsed: 0,
     requestsLimit: 1_000,
@@ -408,17 +432,19 @@ export async function rotateKeyByEmail(email: string): Promise<string | null> {
       data: { keyHash: newHash },
     });
 
-    // Refresh memory/cache: purge any stale entry for the old raw key
-    const prevMem = memoryKeyStore.get(email);
-    if (prevMem) {
-      memoryKeyIndex.delete(prevMem.apiKey);
-      keyCache.delete(prevMem.apiKey);
+    // Refresh memory/cache: purge the entry keyed by the OLD raw key.
+    // We no longer store the raw key on the entry — recover it via the
+    // reverse index, which is still pointing at the old value until we
+    // rewrite it below.
+    const oldRaw = findApiKeyForEmail(email);
+    if (oldRaw) {
+      memoryKeyIndex.delete(oldRaw);
+      keyCache.delete(oldRaw);
     }
 
     const entry: KeyEntry = {
       id: existing.id,
       email,
-      apiKey: newKey,
       tier: existing.tier as "free" | "pro",
       requestsUsed: existing.requestsUsed,
       requestsLimit: existing.requestsLimit,
@@ -437,10 +463,12 @@ export async function rotateKeyByEmail(email: string): Promise<string | null> {
   const memEntry = memoryKeyStore.get(email);
   if (!memEntry) return null;
 
-  memoryKeyIndex.delete(memEntry.apiKey);
-  keyCache.delete(memEntry.apiKey);
+  const oldRaw = findApiKeyForEmail(email);
+  if (oldRaw) {
+    memoryKeyIndex.delete(oldRaw);
+    keyCache.delete(oldRaw);
+  }
 
-  memEntry.apiKey = newKey;
   memoryKeyStore.set(email, memEntry);
   memoryKeyIndex.set(newKey, email);
   keyCache.set(newKey, memEntry);
@@ -493,7 +521,7 @@ export async function keysRoute(app: FastifyInstance) {
             return reply.send({
               tier: "pro",
               message:
-                "This account is already subscribed to Pro. If you've lost your API key, use the 'Lost your key?' reset link on the homepage.",
+                "This account is already subscribed to Pro. If you've lost your API key, you can reset it via email using the button below.",
             });
           }
 
@@ -504,7 +532,7 @@ export async function keysRoute(app: FastifyInstance) {
             return reply.send({
               tier: result.dbTier,
               message:
-                "Payment processing not configured. If you've lost your API key, use the 'Lost your key?' reset link on the homepage.",
+                "Payment processing not configured. If you've lost your API key, you can reset it via email using the button below.",
             });
           }
 
@@ -546,7 +574,7 @@ export async function keysRoute(app: FastifyInstance) {
           tier: result.dbTier,
           requests_limit: result.dbRequestsLimit,
           message:
-            "A key already exists for this email. For security, we never re-display an existing key. If you've lost yours, use the 'Lost your key?' reset link on the homepage to receive a new one via email.",
+            "A key already exists for this email. For security, we never re-display an existing key. Use the button below to receive a fresh one via email.",
         });
       }
 

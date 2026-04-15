@@ -1,18 +1,30 @@
 import crypto from "crypto";
 import { resetTokenSigningKey } from "../config/env";
 
-// Self-contained HMAC tokens for password-less key-reset flow.
+// Self-contained HMAC tokens for password-less email-verification flows
+// (key reset, subscription management). No DB table needed — expiry is
+// baked into the signed payload, and for reset tokens, rotation naturally
+// invalidates the old key on the receiving side.
+//
 // Format: base64url(payload).base64url(hmac)
-// Payload: { email, iat, exp }
-// No DB table needed — expiry is baked into the signed payload, and rotation
-// naturally invalidates the old key on the receiving side.
+// Payload (current): { email, iat, exp, purpose: "reset" | "billing" }
+// Payload (legacy):  { email, iat, exp }                    — treated as "reset"
+//
+// The purpose field prevents cross-flow reuse — a billing-portal token
+// cannot be replayed at /api/keys/reset-confirm and vice versa, even
+// though they share the same HMAC signing key. Legacy reset tokens
+// issued before this field existed (still possibly in-flight in user
+// inboxes at deploy time) are accepted for reset only.
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+export type TokenPurpose = "reset" | "billing";
 
 interface TokenPayload {
   email: string;
   iat: number; // issued-at, ms since epoch
   exp: number; // expires-at, ms since epoch
+  purpose?: TokenPurpose; // optional for backward compat with legacy reset tokens
 }
 
 function b64url(buf: Buffer): string {
@@ -31,25 +43,34 @@ function sign(payloadB64: string): string {
   return b64url(mac);
 }
 
-export function createResetToken(email: string): string {
+function createToken(email: string, purpose: TokenPurpose): string {
   const now = Date.now();
   const payload: TokenPayload = {
     email,
     iat: now,
     exp: now + TOKEN_TTL_MS,
+    purpose,
   };
   const payloadB64 = b64url(Buffer.from(JSON.stringify(payload), "utf8"));
   const sig = sign(payloadB64);
   return `${payloadB64}.${sig}`;
 }
 
+export function createResetToken(email: string): string {
+  return createToken(email, "reset");
+}
+
+export function createBillingToken(email: string): string {
+  return createToken(email, "billing");
+}
+
 export interface VerifyResult {
   ok: boolean;
   email?: string;
-  reason?: "malformed" | "bad_signature" | "expired";
+  reason?: "malformed" | "bad_signature" | "expired" | "wrong_purpose";
 }
 
-export function verifyResetToken(token: string): VerifyResult {
+function verifyToken(token: string, expectedPurpose: TokenPurpose): VerifyResult {
   if (typeof token !== "string" || !token.includes(".")) {
     return { ok: false, reason: "malformed" };
   }
@@ -84,5 +105,22 @@ export function verifyResetToken(token: string): VerifyResult {
     return { ok: false, reason: "expired" };
   }
 
+  // Purpose gate: legacy reset tokens (no purpose field) are accepted for
+  // reset verification only — that matches the pre-purpose behavior. Any
+  // other flow (billing) requires an explicit matching purpose, so a reset
+  // token cannot be replayed at the billing endpoint even if it leaks.
+  const tokenPurpose: TokenPurpose = payload.purpose ?? "reset";
+  if (tokenPurpose !== expectedPurpose) {
+    return { ok: false, reason: "wrong_purpose" };
+  }
+
   return { ok: true, email: payload.email };
+}
+
+export function verifyResetToken(token: string): VerifyResult {
+  return verifyToken(token, "reset");
+}
+
+export function verifyBillingToken(token: string): VerifyResult {
+  return verifyToken(token, "billing");
 }

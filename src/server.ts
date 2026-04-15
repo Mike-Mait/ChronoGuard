@@ -16,6 +16,7 @@ import { batchRoute } from "./routes/batch";
 import { webhooksRoute } from "./routes/webhooks";
 import { contactRoute } from "./routes/contact";
 import { adminRoute } from "./routes/admin";
+import { billingRoute } from "./routes/billing";
 import { AppError } from "./utils/errors";
 import { lookupKeyAsync, incrementUsage } from "./routes/keys";
 import { getPrisma, disconnectPrisma, verifySchema } from "./db/client";
@@ -34,7 +35,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key"];
+const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -280,7 +281,7 @@ async function start() {
 
   // Pre-load static HTML files into memory
   const htmlCache: Record<string, string> = {};
-  for (const page of ["index", "docs", "terms", "privacy", "aup", "reset-key"]) {
+  for (const page of ["index", "docs", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
     htmlCache[page] = fs.readFileSync(path.join(__dirname, "public", `${page}.html`), "utf-8");
   }
 
@@ -323,6 +324,13 @@ async function start() {
     return reply.type("text/html").send(htmlCache["reset-key"]);
   });
 
+  // Subscription management landing page (served when Pro users click
+  // the emailed management link). Calls /api/billing/portal-confirm and
+  // redirects to a Stripe-hosted Customer Portal session.
+  app.get("/manage-subscription", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["manage-subscription"]);
+  });
+
   // Security.txt (IETF RFC 9116)
   const securityTxt = [
     "Contact: mailto:security@chronoshieldapi.com",
@@ -348,6 +356,7 @@ async function start() {
   await app.register(keysRoute);
   await app.register(contactRoute);
   await app.register(adminRoute);
+  await app.register(billingRoute);
 
   // Stripe webhook needs its own encapsulated context for raw body parsing
   await app.register(webhooksRoute);

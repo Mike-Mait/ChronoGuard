@@ -687,6 +687,7 @@ result = cg.validate(
         <a href="/docs" class="hover:text-slate-400 transition-colors">API Docs</a>
         <a href="https://github.com/Mike-Mait/ChronoShield-API/blob/master/CHANGELOG.md" class="hover:text-slate-400 transition-colors">Changelog</a>
         <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-400 transition-colors">GitHub</a>
+        <a href="#" onclick="openManageModal(event)" class="hover:text-slate-400 transition-colors">Manage subscription</a>
         <a href="/terms" class="hover:text-slate-400 transition-colors">Terms</a>
         <a href="/privacy" class="hover:text-slate-400 transition-colors">Privacy</a>
       </div>
@@ -760,6 +761,37 @@ result = cg.validate(
           <a href="#" onclick="switchToResetMode(event)" class="text-slate-400 hover:text-brand-300 underline transition-colors">Reset it via email</a>
         </p>
       </form>
+
+      <!-- Existing-email panel: shown when /api/keys returns isExisting with
+           no api_key (the security-fenced re-request path). Gives the user
+           one-click recovery instead of asking them to hunt for a link. -->
+      <div id="key-exists" class="hidden mt-4">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-5 h-5 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm font-medium text-brand-300">Account already exists</span>
+        </div>
+        <p class="text-sm text-slate-400" id="key-exists-msg">
+          A key already exists for this email. For security, we never re-display an existing key &mdash; but you can reset it via email below.
+        </p>
+        <div class="mt-4 space-y-2">
+          <button
+            type="button"
+            id="key-exists-reset-btn"
+            onclick="resetFromExisting()"
+            class="w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition-colors cursor-pointer"
+          >
+            Send me a reset link
+          </button>
+          <button
+            type="button"
+            id="key-exists-manage-btn"
+            onclick="manageFromExisting()"
+            class="hidden w-full py-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-500 text-slate-200 text-sm transition-colors cursor-pointer"
+          >
+            Manage my subscription
+          </button>
+        </div>
+      </div>
 
       <!-- Reset-request confirmation -->
       <div id="reset-sent" class="hidden mt-4">
@@ -918,7 +950,12 @@ result = cg.validate(
     }
 
     /* ── Modal ── */
-    // Current modal mode: 'free' | 'pro' | 'reset'
+    // Current modal mode: 'free' | 'pro' | 'reset' | 'manage'
+    //  - 'free'/'pro': key issuance (POST /api/keys)
+    //  - 'reset':      password-less key rotation (POST /api/keys/reset-request)
+    //  - 'manage':     Stripe Customer Portal access (POST /api/billing/portal-request)
+    // The submit handler branches on modalMode captured at submit-time, so
+    // changing mode mid-submit doesn't race.
     let modalMode = 'free';
 
     function openModal(tier) {
@@ -928,6 +965,7 @@ result = cg.validate(
       document.getElementById('key-success').classList.add('hidden');
       document.getElementById('pro-redirect').classList.add('hidden');
       document.getElementById('reset-sent').classList.add('hidden');
+      document.getElementById('key-exists').classList.add('hidden');
       document.getElementById('reset-link-row').classList.remove('hidden');
       document.getElementById('email-input').value = '';
 
@@ -955,9 +993,13 @@ result = cg.validate(
       document.getElementById('submit-btn').textContent = 'Send reset link';
       document.getElementById('key-success').classList.add('hidden');
       document.getElementById('reset-sent').classList.add('hidden');
+      document.getElementById('key-exists').classList.add('hidden');
       document.getElementById('key-form').classList.remove('hidden');
       document.getElementById('reset-link-row').classList.add('hidden');
-      document.getElementById('email-input').value = '';
+      // Keep whatever email the user already typed — most of the time the
+      // switch happens after they submit an existing address, so preserving
+      // it saves them a retype. openModal() clears it explicitly; callers
+      // that want a blank field can do so themselves.
       document.getElementById('email-input').focus();
     }
 
@@ -965,6 +1007,91 @@ result = cg.validate(
     function openResetFromSuccess(e) {
       if (e) e.preventDefault();
       switchToResetMode();
+    }
+
+    // Open the modal directly into 'manage' mode (footer link). Unlike the
+    // key-exists panel path, we don't know the user's email yet, so we
+    // start with the form visible and let them type it. The server is
+    // enumeration-safe, so non-Pro emails silently land on the same
+    // generic-success confirmation as Pro emails.
+    function openManageModal(e) {
+      if (e) e.preventDefault();
+      modalMode = 'manage';
+      document.getElementById('form-tier').value = 'manage';
+      document.getElementById('key-form').classList.remove('hidden');
+      document.getElementById('key-success').classList.add('hidden');
+      document.getElementById('pro-redirect').classList.add('hidden');
+      document.getElementById('reset-sent').classList.add('hidden');
+      document.getElementById('key-exists').classList.add('hidden');
+      document.getElementById('reset-link-row').classList.add('hidden');
+      document.getElementById('modal-title').textContent = 'Manage your subscription';
+      document.getElementById('modal-desc').textContent = "Enter the email associated with your Pro subscription and we'll send you a secure management link.";
+      document.getElementById('submit-btn').textContent = 'Send management link';
+      document.getElementById('email-input').value = '';
+
+      const overlay = document.getElementById('modal-overlay');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      document.getElementById('email-input').focus();
+    }
+
+    // Called from the key-exists panel's primary CTA. The user has already
+    // typed their email and submitted once — auto-fire the reset request
+    // instead of dumping them back on the form to retype it.
+    async function resetFromExisting() {
+      const email = document.getElementById('key-exists-email')?.value || document.getElementById('email-input').value;
+      if (!email) {
+        switchToResetMode();
+        return;
+      }
+      const btn = document.getElementById('key-exists-reset-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      try {
+        const res = await fetch('/api/keys/reset-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Something went wrong');
+        document.getElementById('key-exists').classList.add('hidden');
+        document.getElementById('reset-sent').classList.remove('hidden');
+        if (data.message) document.getElementById('reset-sent-msg').textContent = data.message;
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Send me a reset link';
+      }
+    }
+
+    // Called from the key-exists panel's "Manage subscription" CTA (Pro
+    // users only). Fires the enumeration-safe portal-request flow the same
+    // way resetFromExisting() fires the reset-request flow. The backend
+    // handler and manage-sent UI are wired up in Point #3.
+    async function manageFromExisting() {
+      const email = document.getElementById('key-exists-email')?.value || document.getElementById('email-input').value;
+      if (!email) return;
+      const btn = document.getElementById('key-exists-manage-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+      try {
+        const res = await fetch('/api/billing/portal-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Something went wrong');
+        document.getElementById('key-exists').classList.add('hidden');
+        document.getElementById('reset-sent').classList.remove('hidden');
+        document.getElementById('reset-sent-msg').textContent =
+          data.message || "If this email is associated with a Pro subscription, we've sent a secure management link. It expires in 1 hour.";
+      } catch (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = 'Manage my subscription';
+      }
     }
 
     function closeModal() {
@@ -988,8 +1115,15 @@ result = cg.validate(
       btn.textContent = 'Please wait...';
 
       try {
-        if (wasMode === 'reset') {
-          const res = await fetch('/api/keys/reset-request', {
+        if (wasMode === 'reset' || wasMode === 'manage') {
+          // Both flows share the same enumeration-safe "we'll email you
+          // if you qualify" UX — identical UI on completion regardless of
+          // whether the email is actually on file. Only the endpoint and
+          // the success-message fallback differ.
+          const endpoint = wasMode === 'reset'
+            ? '/api/keys/reset-request'
+            : '/api/billing/portal-request';
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
@@ -1025,10 +1159,40 @@ result = cg.validate(
           document.getElementById('key-success').classList.remove('hidden');
           document.getElementById('api-key-display').textContent = data.api_key;
         } else {
-          // Key exists but can't be shown (server restarted)
+          // Existing-email path: server returned tier/metadata but no
+          // raw key (by design — we never redisplay an existing key).
+          // Instead of dumping the user at a wall of text telling them
+          // where to find the reset link, show an action panel with a
+          // one-click "Send me a reset link" button. Pro accounts also
+          // get a "Manage my subscription" button. Stash the email in a
+          // hidden field so the handlers don't depend on the form input
+          // (which may be cleared on mode switch).
           document.getElementById('key-form').classList.add('hidden');
           document.getElementById('reset-link-row').classList.add('hidden');
-          document.getElementById('modal-desc').textContent = data.message;
+
+          // Hidden email carrier — created once, reused if the user
+          // backs out and tries another address in the same session.
+          let carrier = document.getElementById('key-exists-email');
+          if (!carrier) {
+            carrier = document.createElement('input');
+            carrier.type = 'hidden';
+            carrier.id = 'key-exists-email';
+            document.getElementById('key-exists').appendChild(carrier);
+          }
+          carrier.value = email;
+
+          // Reset button label and helper text are static; toggle the
+          // Manage button based on server-reported tier. Intentionally
+          // only server-reported — never trust a client-side guess.
+          const isPro = data.tier === 'pro';
+          const manageBtn = document.getElementById('key-exists-manage-btn');
+          if (isPro) manageBtn.classList.remove('hidden');
+          else manageBtn.classList.add('hidden');
+
+          if (data.message) {
+            document.getElementById('key-exists-msg').textContent = data.message;
+          }
+          document.getElementById('key-exists').classList.remove('hidden');
         }
       } catch (err) {
         alert(err.message);
@@ -1037,9 +1201,11 @@ result = cg.validate(
         btn.textContent =
           wasMode === 'reset'
             ? 'Send reset link'
-            : wasMode === 'pro'
-              ? 'Continue to Checkout'
-              : 'Get API Key';
+            : wasMode === 'manage'
+              ? 'Send management link'
+              : wasMode === 'pro'
+                ? 'Continue to Checkout'
+                : 'Get API Key';
       }
     }
 

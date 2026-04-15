@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Subscription &mdash; ChronoShield API</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff', 100:'#d9eaff', 200:'#bcdaff', 300:'#8ec2ff', 400:'#59a0ff', 500:'#3378ff', 600:'#1b57f5', 700:'#1543e1', 800:'#1837b6', 900:'#1a328f', 950:'#141f57' },
+          },
+          fontFamily: { mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'] },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col">
+  <!-- Nav -->
+  <header class="border-b border-slate-800/60">
+    <div class="max-w-5xl mx-auto px-6 py-4">
+      <a href="/" class="flex items-center gap-2.5 no-underline">
+        <img src="/favicon.svg" alt="" class="w-7 h-7" />
+        <span class="text-white font-semibold tracking-tight">ChronoShield API</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center px-6 py-16">
+    <div class="w-full max-w-md">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl">
+        <h1 class="text-2xl font-bold text-white">Manage Subscription</h1>
+
+        <!-- Loading -->
+        <div id="state-loading" class="mt-6 text-sm text-slate-400">
+          Verifying your management link&hellip;
+        </div>
+
+        <!-- Confirm prompt -->
+        <div id="state-confirm" class="hidden mt-6">
+          <p class="text-sm text-slate-400">
+            Click below to open your secure Stripe-hosted management portal. You'll be able to update your payment method, view invoices, and cancel your subscription.
+          </p>
+          <button
+            id="confirm-btn"
+            class="mt-5 w-full py-3 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition-colors cursor-pointer"
+          >
+            Open management portal
+          </button>
+          <a href="/" class="block mt-3 text-center text-sm text-slate-500 hover:text-slate-300 transition-colors">
+            Cancel
+          </a>
+        </div>
+
+        <!-- Redirect state (after we have a portal URL) -->
+        <div id="state-redirect" class="hidden mt-6 text-center">
+          <svg class="mx-auto w-8 h-8 text-brand-300 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="mt-4 text-sm text-slate-400">Redirecting to Stripe&hellip;</p>
+          <p class="mt-2 text-xs text-slate-500">
+            Not redirected automatically? <a id="manual-link" href="#" class="text-brand-300 hover:text-brand-200 underline">Click here</a>.
+          </p>
+        </div>
+
+        <!-- Error -->
+        <div id="state-error" class="hidden mt-6">
+          <div class="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+            <p class="font-semibold" id="error-title">Something went wrong</p>
+            <p class="mt-1 text-rose-100/90" id="error-message"></p>
+          </div>
+          <a href="/" class="block mt-5 w-full text-center py-3 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-500 text-white font-semibold text-sm transition-colors">
+            Return to homepage
+          </a>
+        </div>
+      </div>
+
+      <p class="mt-6 text-center text-xs text-slate-600">
+        Didn't request this? You can safely ignore the email &mdash; no changes will be made.
+      </p>
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-800/60 mt-auto">
+    <div class="max-w-5xl mx-auto px-6 py-6 text-xs text-slate-500 flex justify-between items-center">
+      <span>&copy; 2026 ChronoShield API</span>
+      <div class="flex gap-4">
+        <a href="/" class="hover:text-slate-400 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-400 transition-colors">Docs</a>
+        <a href="/terms" class="hover:text-slate-400 transition-colors">Terms</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    function show(id) {
+      for (const s of ['state-loading', 'state-confirm', 'state-redirect', 'state-error']) {
+        document.getElementById(s).classList.toggle('hidden', s !== id);
+      }
+    }
+
+    function showError(title, message) {
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-message').textContent = message;
+      show('state-error');
+    }
+
+    async function confirmPortal() {
+      const btn = document.getElementById('confirm-btn');
+      btn.disabled = true;
+      btn.textContent = 'Opening portal...';
+      try {
+        const res = await fetch('/api/billing/portal-confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const title =
+            data.code === 'TOKEN_EXPIRED'
+              ? 'Link expired'
+              : data.code === 'NO_SUBSCRIPTION'
+                ? 'No active subscription'
+                : 'Invalid link';
+          showError(title, data.message || 'Please request a new management link from the homepage.');
+          return;
+        }
+        if (!data.portal_url) {
+          showError('Unexpected response', 'The server did not return a portal URL. Please try again in a moment.');
+          return;
+        }
+        // Show the redirect state with a fallback link, then navigate.
+        // The fallback is shown in case a browser extension or cautious
+        // popup blocker suppresses the immediate navigation.
+        document.getElementById('manual-link').href = data.portal_url;
+        show('state-redirect');
+        window.location.href = data.portal_url;
+      } catch (err) {
+        showError('Network error', 'Could not reach the server. Please try again in a moment.');
+      }
+    }
+
+    // On load: validate we have a token, then show the confirm button (we
+    // do NOT auto-open the portal on page load — email previewers/link
+    // scanners would burn a portal session).
+    if (!token) {
+      showError('Missing token', 'This management link is incomplete. Please request a new one.');
+    } else {
+      show('state-confirm');
+      document.getElementById('confirm-btn').addEventListener('click', confirmPortal);
+    }
+  </script>
+</body>
+</html>
