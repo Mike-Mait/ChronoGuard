@@ -3,3 +3,18 @@ dist/
 .env
 *.log
 .claude/settings.local.json
+
+# ─── Python build artifacts (SDK) ───
+# Written automatically on import under any cpython version. Never commit:
+# per-interpreter-tagged, regenerated on first import, and a frequent source
+# of stale-bytecode "works on my machine" ghosts when a .py is deleted but
+# its .pyc lingers.
+__pycache__/
+*.pyc
+
+# ─── Library lockfiles (publishable SDKs only) ───
+# The root app's package-lock.json IS tracked intentionally for
+# reproducible Railway deploys — DO NOT broaden this to a top-level
+# package-lock.json ignore. For the publishable SDKs we deliberately
+# don't ship a lockfile; consumers resolve against their own.
+sdk/typescript/package-lock.json
