@@ -23,6 +23,26 @@ function sanitizeForEmail(str: string): string {
   return str.replace(/[\r\n]/g, " ").trim();
 }
 
+// Canonicalize an email address for storage and lookup. Trims surrounding
+// whitespace and lowercases the whole string.
+//
+// RFC 5321 says the local part ("alice" in alice@example.com) is technically
+// case-sensitive, but no real-world mail server or user treats it that way.
+// Leaving case as the user typed it lets "Bob@example.com" and
+// "bob@example.com" create two separate account rows — a footgun both
+// for the user (they can't find their own key) and for us (duplicate
+// Stripe customers, doubled mail volume, inflated MRR metrics).
+//
+// Applied at every public entry point that accepts an email: the /api/keys
+// creation endpoint, the reset- and billing-portal request endpoints, and
+// the Stripe webhook's email-extraction path. Tokens are minted AFTER
+// normalization, so the email baked into a signed token is already in
+// canonical form — downstream token-verify call sites don't need to
+// re-normalize.
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
 export async function sendResetKeyEmail(
   toEmail: string,
   resetUrl: string

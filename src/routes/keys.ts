@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { config, getStripe } from "../config/env";
 import { getPrisma } from "../db/client";
 import { createResetToken, verifyResetToken } from "../utils/resetTokens";
-import { sendResetKeyEmail, sendWelcomeFreeEmail } from "../utils/email";
+import { sendResetKeyEmail, sendWelcomeFreeEmail, normalizeEmail } from "../utils/email";
 import { captureException } from "../config/sentry";
 
 // ─── Types ───
@@ -491,19 +491,24 @@ export async function keysRoute(app: FastifyInstance) {
         });
       }
 
-      const { email, tier } = request.body as {
+      const { email: rawEmail, tier } = request.body as {
         email?: string;
         tier?: string;
       };
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || email.length > 254 || !emailRegex.test(email)) {
+      if (!rawEmail || rawEmail.length > 254 || !emailRegex.test(rawEmail)) {
         return (reply as any).code(400).send({
           error: "Valid email is required",
           code: "VALIDATION_FAILED",
           message: "Provide a valid email address to generate an API key.",
         });
       }
+
+      // Normalize AFTER regex validation so we reject obvious garbage
+      // before mutating the input, and BEFORE any DB/Stripe/memory-store
+      // call so every downstream lookup sees the canonical form.
+      const email = normalizeEmail(rawEmail);
 
       const result = await createOrGetKey(
         email,
@@ -664,15 +669,20 @@ export async function keysRoute(app: FastifyInstance) {
     "/api/keys/reset-request",
     { schema: { hide: true } },
     async (request, reply) => {
-      const { email } = request.body as { email?: string };
+      const { email: rawEmail } = request.body as { email?: string };
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || email.length > 254 || !emailRegex.test(email)) {
+      if (!rawEmail || rawEmail.length > 254 || !emailRegex.test(rawEmail)) {
         return reply.code(400).send({
           error: "Validation failed",
           code: "VALIDATION_FAILED",
           message: "Provide a valid email address.",
         });
       }
+
+      // Normalize before any lookup or token mint. The token payload
+      // will carry the canonical (lowercased) email, so the subsequent
+      // reset-confirm request doesn't need to re-normalize.
+      const email = normalizeEmail(rawEmail);
 
       const genericOk = {
         message:

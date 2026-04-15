@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { config, getStripe } from "../config/env";
 import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
-import { sendWelcomeProEmail, sendSubscriptionCancelledEmail } from "../utils/email";
+import { sendWelcomeProEmail, sendSubscriptionCancelledEmail, normalizeEmail } from "../utils/email";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -51,8 +51,16 @@ export async function webhooksRoute(app: FastifyInstance) {
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object;
-          const email = session.metadata?.email || session.customer_email;
+          const rawEmail = session.metadata?.email || session.customer_email;
           const customerId = session.customer;
+
+          // Normalize the email before DB lookup. Stripe preserves the
+          // case the user typed into checkout — if we wrote the DB row as
+          // "bob@example.com" but Stripe returns "Bob@example.com" on
+          // the session, upgradeToProByEmail would miss the row and the
+          // user would stay on Free tier despite paying. Canonicalize at
+          // the edge so every internal call sees the same form.
+          const email = rawEmail ? normalizeEmail(rawEmail) : null;
 
           if (email) {
             await upgradeToProByEmail(email, customerId);
@@ -104,11 +112,25 @@ export async function webhooksRoute(app: FastifyInstance) {
         }
 
         case "invoice.payment_failed": {
+          // DELIBERATELY does NOT downgrade. Stripe Smart Retries will
+          // retry the failed invoice on an exponential schedule for up
+          // to ~3 weeks before giving up; during that window the user
+          // still has a valid subscription and should keep Pro access.
+          // If Stripe ultimately gives up, we'll receive
+          // customer.subscription.deleted and downgrade *then*.
+          //
+          // Dropping a paying customer to Free tier on the first card
+          // blip (e.g. a renewal-day decline while they're at dinner)
+          // would be a jarring experience and is the wrong tradeoff for
+          // a service where the key keeps working regardless — we just
+          // reduce the monthly ceiling.
+          //
+          // Log at info level so failures are still visible to ops, but
+          // don't mutate account state.
           const customerId = event.data.object.customer;
-          const result = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
-            { customer: customerId, downgraded: result.ok },
-            "Payment failed — downgraded to free tier"
+            { customer: customerId },
+            "Payment failed — leaving tier unchanged (waiting on subscription outcome)"
           );
           break;
         }

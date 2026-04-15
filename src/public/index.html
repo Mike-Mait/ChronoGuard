@@ -1148,8 +1148,21 @@ result = cg.validate(
         if (!res.ok) throw new Error(data.error || 'Something went wrong');
 
         if (data.checkout_url) {
-          // Save email so we can fetch key after checkout return
+          // Save email and (for brand-new Pro signups) the freshly-issued
+          // raw API key across the Stripe round-trip. The server returns
+          // `api_key` only for brand-new emails; existing-Free upgrades
+          // don't include it because the user already has their key.
+          //
+          // sessionStorage is origin-scoped and cleared on tab close, and
+          // we delete the key immediately after displaying it on return
+          // (see handleCheckoutReturn below). This is the ONLY reliable
+          // way to show the key to a brand-new Pro user: createOrGetKey
+          // refuses to re-serve keys for existing emails (security fence),
+          // so post-checkout the server can no longer hand it back.
           sessionStorage.setItem('checkout_email', email);
+          if (data.api_key) {
+            sessionStorage.setItem('checkout_api_key', data.api_key);
+          }
           document.getElementById('key-form').classList.add('hidden');
           document.getElementById('pro-redirect').classList.remove('hidden');
           window.location.href = data.checkout_url;
@@ -1233,8 +1246,13 @@ result = cg.validate(
       const checkout = params.get('checkout');
 
       if (checkout === 'success') {
-        const email = sessionStorage.getItem('checkout_email');
+        // Pull the email + (for brand-new Pro signups) the stashed raw key
+        // before clearing them — leaving them in storage after a reload
+        // would both clutter the user's tab state and create an unexpected
+        // second chance to grab the key from DevTools.
+        const savedKey = sessionStorage.getItem('checkout_api_key');
         sessionStorage.removeItem('checkout_email');
+        sessionStorage.removeItem('checkout_api_key');
 
         document.getElementById('modal-title').textContent = 'Payment successful!';
         document.getElementById('key-form').classList.add('hidden');
@@ -1243,26 +1261,21 @@ result = cg.validate(
         overlay.classList.add('flex');
         window.history.replaceState({}, '', '/');
 
-        if (email) {
-          // Try to fetch the key (works if same server session)
-          try {
-            const res = await fetch('/api/keys', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email }),
-            });
-            const data = await res.json();
-            if (data.api_key) {
-              document.getElementById('modal-desc').textContent = 'Your Pro plan is now active. Here is your API key:';
-              document.getElementById('key-success').classList.remove('hidden');
-              document.getElementById('api-key-display').textContent = data.api_key;
-              return;
-            }
-          } catch {}
+        if (savedKey) {
+          // Brand-new Pro user: display the key we stashed before the
+          // Stripe redirect. This is the ONLY time it will be shown — the
+          // server can no longer hand it back (see security fence in
+          // createOrGetKey). The "Save this key now" amber banner in the
+          // #key-success block gives the standard one-shot warning.
+          document.getElementById('modal-desc').textContent = 'Your Pro plan is now active. Here is your API key:';
+          document.getElementById('api-key-display').textContent = savedKey;
+          document.getElementById('key-success').classList.remove('hidden');
+        } else {
+          // Existing user upgraded: their original key still works at the
+          // new Pro limits. No raw key is shown (by design) — and they
+          // already saved it when they first signed up for Free.
+          document.getElementById('modal-desc').textContent = 'Your Pro plan is now active. Your existing API key has been upgraded to Pro tier.';
         }
-
-        // Fallback: key can't be recovered
-        document.getElementById('modal-desc').textContent = 'Your Pro plan is now active. Your existing API key has been upgraded to Pro tier.';
       } else if (checkout === 'cancelled') {
         document.getElementById('modal-title').textContent = 'Checkout cancelled';
         document.getElementById('modal-desc').textContent = 'No worries — you can try again any time, or start with the free tier.';

@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { config, getStripe } from "../config/env";
 import { getPrisma } from "../db/client";
 import { createBillingToken, verifyBillingToken } from "../utils/resetTokens";
-import { sendBillingPortalEmail } from "../utils/email";
+import { sendBillingPortalEmail, normalizeEmail } from "../utils/email";
 import { captureException } from "../config/sentry";
 
 // ─── Rate limiter: mirrors the reset-request limiter intentionally ───
@@ -48,15 +48,20 @@ export async function billingRoute(app: FastifyInstance) {
     "/api/billing/portal-request",
     { schema: { hide: true } },
     async (request, reply) => {
-      const { email } = request.body as { email?: string };
+      const { email: rawEmail } = request.body as { email?: string };
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email || email.length > 254 || !emailRegex.test(email)) {
+      if (!rawEmail || rawEmail.length > 254 || !emailRegex.test(rawEmail)) {
         return reply.code(400).send({
           error: "Validation failed",
           code: "VALIDATION_FAILED",
           message: "Provide a valid email address.",
         });
       }
+
+      // Normalize before lookup / token mint — same discipline as the
+      // reset-request handler. Ensures "Bob@example.com" matches the
+      // canonical "bob@example.com" row in the DB.
+      const email = normalizeEmail(rawEmail);
 
       const genericOk = {
         message:
