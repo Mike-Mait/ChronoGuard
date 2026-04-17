@@ -219,7 +219,9 @@ export async function sendWelcomeProEmail(toEmail: string): Promise<boolean> {
         `  • Priority support (reply to this email and you'll jump the queue)`,
         `  • Same API and same key — just with more room to scale`,
         ``,
-        `A billing receipt for your subscription will arrive separately from Stripe. You can manage your subscription (update card, view invoices, cancel anytime) from any Stripe receipt's customer-portal link.`,
+        `A billing receipt for your subscription will arrive separately from Stripe.`,
+        ``,
+        `To manage your subscription at any time (update your card, view invoices, or cancel), visit https://chronoshieldapi.com and click "Manage my subscription" — we'll email you a secure one-time link that opens the Stripe customer portal.`,
         ``,
         `If anything comes up — integration questions, feature requests, or something weird in the API — just reply here. You'll get a real person, not a ticketing bot.`,
         ``,
@@ -239,38 +241,60 @@ export async function sendWelcomeProEmail(toEmail: string): Promise<boolean> {
   }
 }
 
-// ─── Cancellation / downgrade email: Pro → Free ───
-// Sent from the Stripe webhook on customer.subscription.deleted, after
-// downgradeToFreeByStripeCustomerId has persisted the tier change.
-// Deliberately warm-toned (no "sorry to see you go" guilt-trip, no
-// desperate win-back offer) — a genuine thank-you is better retention
-// than a pushy retention email. Same API key keeps working at free-tier
-// limits; we want that to be the clear, reassuring message.
-export async function sendSubscriptionCancelledEmail(toEmail: string): Promise<boolean> {
+// ─── Cancellation-scheduled email: fires when user clicks Cancel ───
+// Sent from the Stripe webhook on customer.subscription.updated when
+// cancel_at_period_end transitions false → true (i.e. the user just
+// clicked Cancel in the Stripe Portal). This is the ONLY cancellation-
+// related email we send — deliberately not re-sent on
+// customer.subscription.deleted at period-end (that downgrade is silent)
+// because two emails for one cancellation decision is noisy.
+//
+// Intent: reassure immediately. A user who clicks Cancel and hears
+// nothing for 30 days wonders if the product is broken. The message has
+// to land the same day, spell out exactly when Pro ends, and make crystal
+// clear the API key keeps working afterward (just at free-tier limits).
+//
+// Tone matches sendWelcomeProEmail — warm thank-you, no retention guilt,
+// no aggressive win-back offer. Honest feedback ask at the end.
+export async function sendCancellationScheduledEmail(
+  toEmail: string,
+  periodEnd: Date
+): Promise<boolean> {
   const mailer = getTransporter();
   if (!mailer) return false;
+
+  // Formatted for a US/English audience — "April 30, 2026" reads far
+  // better in an email body than an ISO timestamp. If we ever localize
+  // we can branch on the user's locale from their DB record; for now,
+  // a single format is fine.
+  const formattedDate = periodEnd.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
   try {
     await mailer.sendMail({
       from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
       to: toEmail,
       replyTo: "support@chronoshieldapi.com",
-      subject: "Your ChronoShield Pro subscription has been cancelled",
+      subject: "Your ChronoShield Pro cancellation is scheduled",
       text: [
         `Hi,`,
         ``,
-        `Your ChronoShield Pro subscription has been cancelled as requested. Thank you for being a Pro customer — it genuinely meant a lot to have your support.`,
+        `We've received your cancellation request — thanks for letting us know. Here's exactly what happens next so there are no surprises:`,
         ``,
-        `A few things worth knowing:`,
-        `  • Your API key still works — it's now on the free tier (1,000 requests/month).`,
-        `  • No action needed from you. The same x-api-key header keeps working.`,
-        `  • Any usage above the free-tier limit will return 429 until your monthly quota resets.`,
+        `  • Your Pro access continues through ${formattedDate}. You keep the full 100,000 requests/month until then.`,
+        `  • On ${formattedDate}, your API key automatically reverts to the free tier (1,000 requests/month). Same x-api-key header, lower monthly ceiling.`,
+        `  • You don't need to do anything. No final confirmation step, no card charge on that date.`,
+        `  • Any usage above the free-tier limit will return 429 until your monthly quota resets on the first of each month.`,
         ``,
-        `If you ever want to come back, just visit https://chronoshieldapi.com and upgrade again with the same email — your key stays the same.`,
+        `Changed your mind?`,
+        `You can resubscribe anytime by visiting https://chronoshieldapi.com and entering the same email address. Your existing key stays the same — no reset required.`,
         ``,
-        `And if something about the service didn't work for you, I'd genuinely love to hear why — just reply to this email. Honest feedback (even harsh feedback) is the most useful thing you can send us.`,
+        `And if something about the service didn't work for you, I'd genuinely appreciate hearing why — just reply to this email. Honest feedback (even harsh feedback) is one of the most useful things you can send us.`,
         ``,
-        `Thanks again for giving ChronoShield a try.`,
+        `Thanks for trying ChronoShield Pro.`,
         ``,
         `— The ChronoShield Team`,
         `https://chronoshieldapi.com`,
@@ -279,7 +303,7 @@ export async function sendSubscriptionCancelledEmail(toEmail: string): Promise<b
     return true;
   } catch (err: any) {
     console.error(
-      "[sendSubscriptionCancelledEmail] SMTP send failed:",
+      "[sendCancellationScheduledEmail] SMTP send failed:",
       err?.response || err?.message || err
     );
     return false;

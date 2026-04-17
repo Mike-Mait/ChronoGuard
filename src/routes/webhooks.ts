@@ -1,7 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { config, getStripe } from "../config/env";
-import { upgradeToProByEmail, downgradeToFreeByStripeCustomerId } from "./keys";
-import { sendWelcomeProEmail, sendSubscriptionCancelledEmail, normalizeEmail } from "../utils/email";
+import {
+  upgradeToProByEmail,
+  downgradeToFreeByStripeCustomerId,
+  getEmailByStripeCustomerId,
+} from "./keys";
+import { sendWelcomeProEmail, sendCancellationScheduledEmail, normalizeEmail } from "../utils/email";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -80,24 +84,73 @@ export async function webhooksRoute(app: FastifyInstance) {
           break;
         }
 
+        case "customer.subscription.updated": {
+          // Fires on ANY subscription mutation (plan change, quantity,
+          // trial extension, etc.), so we have to narrowly scope this
+          // handler to the one transition we care about: the user just
+          // clicked Cancel in the Stripe Portal and Stripe has flagged
+          // the subscription to end at period-end.
+          //
+          // Stripe populates event.data.previous_attributes with ONLY
+          // the fields that actually changed on this event. Checking for
+          // cancel_at_period_end there filters out every unrelated
+          // update — without it, this case would fire noisy emails on
+          // renewals, card updates, etc.
+          const subscription = event.data.object;
+          const previousAttributes =
+            (event.data as any).previous_attributes || {};
+
+          const justScheduledCancellation =
+            subscription.cancel_at_period_end === true &&
+            "cancel_at_period_end" in previousAttributes &&
+            previousAttributes.cancel_at_period_end === false;
+
+          if (!justScheduledCancellation) {
+            break;
+          }
+
+          const customerId = subscription.customer;
+          // current_period_end is unix seconds — multiply to ms for Date.
+          // This is the moment Pro access actually ends and the
+          // subscription.deleted event will fire to downgrade the row.
+          const periodEnd = new Date(subscription.current_period_end * 1000);
+
+          const email = await getEmailByStripeCustomerId(customerId);
+          if (!email) {
+            request.log.warn(
+              { customer: customerId },
+              "cancel-scheduled: no account found for Stripe customer"
+            );
+            break;
+          }
+
+          request.log.info(
+            { customer: customerId, email, periodEnd: periodEnd.toISOString() },
+            "Pro subscription cancellation scheduled for period-end"
+          );
+
+          // Fire-and-forget. Mail failures must not 500 the webhook —
+          // Stripe would retry and we'd risk sending duplicates if the
+          // second attempt succeeded. Same discipline as the other
+          // webhook email paths.
+          sendCancellationScheduledEmail(email, periodEnd).catch((err) =>
+            request.log.warn(err, "Failed to send cancellation-scheduled email")
+          );
+          break;
+        }
+
         case "customer.subscription.deleted": {
+          // Fires at period-end (or immediately if the user/admin chose
+          // "cancel immediately"). We downgrade silently here — the
+          // user-facing notification was already sent on the earlier
+          // customer.subscription.updated event when they first clicked
+          // Cancel. Sending a second email at period-end would be noise.
           const customerId = event.data.object.customer;
           const result = await downgradeToFreeByStripeCustomerId(customerId);
           request.log.info(
             { customer: customerId, downgraded: result.ok },
-            "Subscription cancelled — downgraded to free tier"
+            "Subscription ended — downgraded to free tier"
           );
-
-          // Fire-and-forget thank-you email. Only sent for explicit
-          // subscription cancellation — NOT for payment_failed (that's a
-          // different, more urgent comms path: "update your card") and
-          // NOT for charge.refunded (the refund receipt from Stripe is
-          // the appropriate ack there).
-          if (result.ok && result.email) {
-            sendSubscriptionCancelledEmail(result.email).catch((err) =>
-              request.log.warn(err, "Failed to send cancellation email")
-            );
-          }
           break;
         }
 

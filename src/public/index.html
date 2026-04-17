@@ -1060,6 +1060,11 @@ result = cg.validate(
         if (data.message) document.getElementById('reset-sent-msg').textContent = data.message;
       } catch (err) {
         alert(err.message);
+      } finally {
+        // Always restore button to its default label, even on the success
+        // path — otherwise the button stays stuck on "Sending..." and if the
+        // user reopens the modal (or Pro users who click both reset AND
+        // manage) they see the in-flight label on the next open.
         btn.disabled = false;
         btn.textContent = 'Send me a reset link';
       }
@@ -1089,6 +1094,9 @@ result = cg.validate(
           data.message || "If this email is associated with a Pro subscription, we've sent a secure management link. It expires in 1 hour.";
       } catch (err) {
         alert(err.message);
+      } finally {
+        // See resetFromExisting for rationale — restore on success too so
+        // the label isn't stuck at "Sending..." on the next reopen.
         btn.disabled = false;
         btn.textContent = 'Manage my subscription';
       }

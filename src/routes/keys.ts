@@ -226,6 +226,29 @@ export async function upgradeToProByEmail(email: string, stripeCustomerId: strin
 //
 // Returns the email on success so callers can send follow-up mail (e.g.
 // a cancellation thank-you) without a second DB round trip.
+// Read-only reverse lookup: given a Stripe customer ID, return the email
+// on the associated account (or null). Used by the webhook's cancel-
+// scheduled path, which needs to send a notification email but must NOT
+// mutate tier state — the actual downgrade happens later, at period-end,
+// in downgradeToFreeByStripeCustomerId. Splitting the read from the
+// mutation keeps the two webhook cases honest and easy to reason about.
+export async function getEmailByStripeCustomerId(
+  stripeCustomerId: string
+): Promise<string | null> {
+  const prisma = getPrisma();
+  if (prisma) {
+    const record = await prisma.apiKey.findFirst({
+      where: { stripeCustomerId },
+    });
+    return record?.email ?? null;
+  }
+  // DB not configured (local dev only): search the in-memory store.
+  for (const [email, entry] of memoryKeyStore) {
+    if (entry.stripeCustomerId === stripeCustomerId) return email;
+  }
+  return null;
+}
+
 export async function downgradeToFreeByStripeCustomerId(
   stripeCustomerId: string
 ): Promise<{ ok: boolean; email?: string }> {
