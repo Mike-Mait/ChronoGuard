@@ -752,22 +752,30 @@ export async function keysRoute(app: FastifyInstance) {
       const token = createResetToken(email);
       const resetUrl = `${config.baseUrl}/reset-key?token=${encodeURIComponent(token)}`;
 
-      const sendResult = await sendResetKeyEmail(email, resetUrl);
-      if (!sendResult.ok) {
-        // Log the real error so it's visible in Railway deploy logs. Still
-        // returns generic success to the caller so they can't distinguish
-        // "no account" from "mailer broken". Support can follow up manually
-        // via the admin rotate endpoint.
-        request.log.error(
-          { email, requestId: request.id, smtpError: sendResult.error },
-          "Failed to send reset email"
+      // Fire-and-forget SMTP send — do NOT await. Awaiting would cause
+      // real-email requests to take ~200-400ms longer than fake-email
+      // requests (Resend SMTP round-trip), producing a statistically
+      // detectable enumeration oracle despite identical response bodies
+      // and rate limits. By returning immediately, real and fake emails
+      // take the same time. Errors are still logged asynchronously for
+      // operational visibility — just not on the request timeline.
+      sendResetKeyEmail(email, resetUrl)
+        .then((sendResult) => {
+          if (!sendResult.ok) {
+            request.log.error(
+              { email, requestId: request.id, smtpError: sendResult.error },
+              "Failed to send reset email"
+            );
+          } else {
+            request.log.info(
+              { email, requestId: request.id, messageId: sendResult.error },
+              "Key reset email sent"
+            );
+          }
+        })
+        .catch((err) =>
+          request.log.error({ err, email, requestId: request.id }, "Unexpected reset email error")
         );
-      } else {
-        request.log.info(
-          { email, requestId: request.id, messageId: sendResult.error },
-          "Key reset email sent"
-        );
-      }
 
       return reply.send(genericOk);
     }

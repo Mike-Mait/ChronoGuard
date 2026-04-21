@@ -107,18 +107,28 @@ export async function billingRoute(app: FastifyInstance) {
       const token = createBillingToken(email);
       const portalUrl = `${config.baseUrl}/manage-subscription?token=${encodeURIComponent(token)}`;
 
-      const sendResult = await sendBillingPortalEmail(email, portalUrl);
-      if (!sendResult.ok) {
-        request.log.error(
-          { email, requestId: request.id, smtpError: sendResult.error },
-          "Failed to send billing portal email"
+      // Fire-and-forget SMTP send — do NOT await. See the matching
+      // comment in /api/keys/reset-request for the full rationale:
+      // awaiting Resend's ~200-400ms round-trip leaks real-vs-fake
+      // email timing despite identical response bodies and rate limits.
+      // Errors are logged asynchronously so ops visibility is intact.
+      sendBillingPortalEmail(email, portalUrl)
+        .then((sendResult) => {
+          if (!sendResult.ok) {
+            request.log.error(
+              { email, requestId: request.id, smtpError: sendResult.error },
+              "Failed to send billing portal email"
+            );
+          } else {
+            request.log.info(
+              { email, requestId: request.id, messageId: sendResult.error },
+              "Billing portal email sent"
+            );
+          }
+        })
+        .catch((err) =>
+          request.log.error({ err, email, requestId: request.id }, "Unexpected billing email error")
         );
-      } else {
-        request.log.info(
-          { email, requestId: request.id, messageId: sendResult.error },
-          "Billing portal email sent"
-        );
-      }
 
       return reply.send(genericOk);
     }

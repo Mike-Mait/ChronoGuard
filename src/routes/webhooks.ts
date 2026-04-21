@@ -86,34 +86,54 @@ export async function webhooksRoute(app: FastifyInstance) {
 
         case "customer.subscription.updated": {
           // Fires on ANY subscription mutation (plan change, quantity,
-          // trial extension, etc.), so we have to narrowly scope this
-          // handler to the one transition we care about: the user just
-          // clicked Cancel in the Stripe Portal and Stripe has flagged
-          // the subscription to end at period-end.
+          // trial extension, feedback edit, etc.), so we have to narrowly
+          // scope this handler to the exact transition we care about:
+          // the user just clicked Cancel in the Stripe Portal and Stripe
+          // has scheduled the subscription to end at some future date.
+          //
+          // Stripe's Customer Portal has two ways to express "cancel at
+          // period end" depending on portal config:
+          //   (a) cancel_at_period_end: false → true
+          //   (b) cancel_at: null → <unix-timestamp>  (explicit date)
+          // The live portal used in production uses mechanism (b) — we
+          // learned this the hard way when the initial implementation
+          // only checked (a) and never fired an email. Gate on EITHER
+          // transition to be robust to future portal config changes.
           //
           // Stripe populates event.data.previous_attributes with ONLY
-          // the fields that actually changed on this event. Checking for
-          // cancel_at_period_end there filters out every unrelated
-          // update — without it, this case would fire noisy emails on
-          // renewals, card updates, etc.
+          // the fields that actually changed on this event. A cancel
+          // triggers multiple subscription.updated events in sequence
+          // (first cancel_at is set, then cancellation_details.feedback
+          // etc). The null→set transition only appears in previous_
+          // attributes on the FIRST event, so this gate also protects
+          // against duplicate emails on the follow-up events.
           const subscription = event.data.object;
           const previousAttributes =
             (event.data as any).previous_attributes || {};
 
-          const justScheduledCancellation =
-            subscription.cancel_at_period_end === true &&
-            "cancel_at_period_end" in previousAttributes &&
-            previousAttributes.cancel_at_period_end === false;
+          const nowScheduled =
+            subscription.cancel_at_period_end === true ||
+            (subscription.cancel_at !== null && subscription.cancel_at !== undefined);
+
+          const wasNotScheduledBefore =
+            ("cancel_at_period_end" in previousAttributes &&
+              previousAttributes.cancel_at_period_end === false) ||
+            ("cancel_at" in previousAttributes &&
+              previousAttributes.cancel_at === null);
+
+          const justScheduledCancellation = nowScheduled && wasNotScheduledBefore;
 
           if (!justScheduledCancellation) {
             break;
           }
 
           const customerId = subscription.customer;
-          // current_period_end is unix seconds — multiply to ms for Date.
-          // This is the moment Pro access actually ends and the
-          // subscription.deleted event will fire to downgrade the row.
-          const periodEnd = new Date(subscription.current_period_end * 1000);
+          // Effective end date: cancel_at (explicit timestamp) takes
+          // precedence when set, otherwise fall back to current_period_end
+          // for the cancel_at_period_end=true path. Both are unix seconds.
+          const effectiveEndUnix =
+            subscription.cancel_at || subscription.current_period_end;
+          const periodEnd = new Date(effectiveEndUnix * 1000);
 
           const email = await getEmailByStripeCustomerId(customerId);
           if (!email) {
