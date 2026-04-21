@@ -1178,6 +1178,13 @@ result = cg.validate(
           // refuses to re-serve keys for existing emails (security fence),
           // so post-checkout the server can no longer hand it back.
           sessionStorage.setItem('checkout_email', email);
+          // Always clear any prior checkout_api_key residue BEFORE
+          // conditionally setting. Without this, an existing-Free → Pro
+          // upgrade (where the server returns no api_key by design)
+          // would fall through to the prior key set by an earlier
+          // brand-new Pro test in the same tab — and handleCheckoutReturn
+          // would display a key belonging to a different account.
+          sessionStorage.removeItem('checkout_api_key');
           if (data.api_key) {
             sessionStorage.setItem('checkout_api_key', data.api_key);
           }
