@@ -310,6 +310,64 @@ export async function sendCancellationScheduledEmail(
   }
 }
 
+// ─── Refund confirmation email ───
+// Sent from the Stripe webhook on charge.refunded, after
+// downgradeToFreeByStripeCustomerId has persisted the tier change.
+//
+// Rationale for sending this at all (given Stripe has its own refund
+// receipt): Stripe's automatic receipt is unreliable in the specific
+// edge case where a subscription has already been cancelled-immediately
+// before the refund is issued. We observed during launch testing that
+// in that sequence (cancel → cancel-immediately → refund) Stripe
+// silently skips the customer-facing receipt, leaving the user without
+// any acknowledgment that their refund went through.
+//
+// In the normal case (active subscription → refund) this fires ALONGSIDE
+// Stripe's automatic receipt. The content is deliberately service-
+// focused ("your key is now on free tier") rather than financial
+// ("$X refunded to card ending 4242") so the two emails complement
+// each other rather than duplicate — Stripe handles the money receipt,
+// we handle the tier-state ack.
+export async function sendRefundConfirmedEmail(toEmail: string): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "Your ChronoShield refund has been processed",
+      text: [
+        `Hi,`,
+        ``,
+        `Your refund has been processed and your ChronoShield Pro subscription has been closed. Here's what it means for your account:`,
+        ``,
+        `  • Your API key still works — it's now on the free tier (1,000 requests/month).`,
+        `  • The same x-api-key header keeps working. No code changes needed on your end.`,
+        `  • Any usage above the free-tier limit will return 429 until your monthly quota resets on the 1st of each month.`,
+        `  • Stripe will send a separate receipt with the financial details of the refund.`,
+        ``,
+        `If you ever want to come back, just visit https://chronoshieldapi.com and subscribe again with the same email — your existing key stays the same, no reset required.`,
+        ``,
+        `And if something about the service didn't work for you, I'd genuinely appreciate hearing why — just reply to this email. Honest feedback (even harsh feedback) is one of the most useful things you can send us.`,
+        ``,
+        `Thanks for giving ChronoShield a try.`,
+        ``,
+        `— The ChronoShield Team`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch (err: any) {
+    console.error(
+      "[sendRefundConfirmedEmail] SMTP send failed:",
+      err?.response || err?.message || err
+    );
+    return false;
+  }
+}
+
 export async function sendContactNotification(inquiry: {
   plan: string;
   name: string;

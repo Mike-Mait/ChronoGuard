@@ -5,7 +5,12 @@ import {
   downgradeToFreeByStripeCustomerId,
   getEmailByStripeCustomerId,
 } from "./keys";
-import { sendWelcomeProEmail, sendCancellationScheduledEmail, normalizeEmail } from "../utils/email";
+import {
+  sendWelcomeProEmail,
+  sendCancellationScheduledEmail,
+  sendRefundConfirmedEmail,
+  normalizeEmail,
+} from "../utils/email";
 
 export async function webhooksRoute(app: FastifyInstance) {
   // Capture raw body for Stripe signature verification
@@ -181,6 +186,20 @@ export async function webhooksRoute(app: FastifyInstance) {
             { customer: customerId, downgraded: result.ok },
             "Charge refunded — downgraded to free tier"
           );
+
+          // Fire-and-forget refund confirmation. Deliberately sent in
+          // addition to Stripe's automatic refund receipt — we observed
+          // during launch testing that Stripe's receipt silently skips
+          // when a subscription has already been cancelled-immediately
+          // before the refund is issued (cancel → cancel-immediately →
+          // refund leaves the user with no acknowledgment). Ours fills
+          // that gap. In the normal case both fire; they're complementary
+          // (Stripe = money receipt, ours = tier-state ack).
+          if (result.ok && result.email) {
+            sendRefundConfirmedEmail(result.email).catch((err) =>
+              request.log.warn(err, "Failed to send refund confirmation email")
+            );
+          }
           break;
         }
 
