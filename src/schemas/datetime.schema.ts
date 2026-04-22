@@ -21,8 +21,12 @@ export const ResolveSchema = z.object({
 });
 
 export const ConvertSchema = z.object({
+  // Accept an optional fractional-seconds component (e.g. `.000`, `.123456789`)
+  // so output from `/v1/datetime/resolve` (which includes `.000Z` milliseconds
+  // from Date#toISOString) can be piped directly into `/convert` without
+  // hand-stripping. Bounded to 1–9 digits to reject pathologically long inputs.
   instant_utc: z.string().max(30).regex(
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?Z$/,
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d{1,9})?Z$/,
     "Must be ISO 8601 UTC datetime (e.g. 2026-06-15T15:00:00Z)"
   ),
   target_time_zone: z.string().min(1, "target_time_zone is required").max(100),

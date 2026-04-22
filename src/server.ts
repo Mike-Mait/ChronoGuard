@@ -165,6 +165,21 @@ app.setErrorHandler(async (error, request, reply) => {
     });
   }
 
+  // Fastify JSON-schema validation failures surface here with `error.validation`
+  // populated (AJV error array) and `error.statusCode === 400` already set.
+  // Return a clean 400 instead of letting them fall through to the 500 branch —
+  // otherwise every malformed request body gets reported to Sentry as an
+  // internal error, inflating error budgets and confusing customers debugging
+  // their integration.
+  if ((error as any).validation) {
+    return reply.code(400).send({
+      error: "Validation failed",
+      code: "VALIDATION_FAILED",
+      message: (error as any).message || "Request body failed schema validation.",
+      details: (error as any).validation,
+    });
+  }
+
   request.log.error(error);
   captureException(error, {
     method: request.method,
