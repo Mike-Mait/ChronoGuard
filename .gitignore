@@ -18,3 +18,13 @@ __pycache__/
 # package-lock.json ignore. For the publishable SDKs we deliberately
 # don't ship a lockfile; consumers resolve against their own.
 sdk/typescript/package-lock.json
+
+# ─── Executed customer contracts — never commit ───
+# Signed DPAs, MSAs, and Order Forms contain customer legal names,
+# signatures, negotiated terms, and sometimes Personal Data. Templates
+# under legal/ are versioned; executed copies are NOT. Store them
+# somewhere private (e-signature platform archive, encrypted drive,
+# or a separate private repo) — never here.
+legal/signed/
+legal/**/*-signed.pdf
+legal/**/*-executed.pdf
