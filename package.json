@@ -30,6 +30,7 @@
     "fastify": "^5.8.4",
     "ioredis": "^5.10.1",
     "luxon": "^3.7.2",
+    "moment-timezone": "^0.6.2",
     "nodemailer": "^8.0.5",
     "pino": "^10.3.1",
     "prisma": "^6.19.2",
