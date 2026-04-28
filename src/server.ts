@@ -280,14 +280,16 @@ async function start() {
       uptime_seconds: uptimeSec,
       started_at: startedAt.toISOString(),
       database: dbStatus,
-      timezone_data: {
-        iana_version: process.versions.tz || "unknown",
-      },
+      // tzdb version moved to /v1/datetime/version (canonical) — /status
+      // is now scoped to operational health (uptime, DB connectivity).
+      // Kept clean separation: /status = "is the server up?"
+      //                        /version = "what data am I serving?"
       endpoints: {
         validate: "/v1/datetime/validate",
         resolve: "/v1/datetime/resolve",
         convert: "/v1/datetime/convert",
         batch: "/v1/datetime/batch",
+        version: "/v1/datetime/version",
       },
       documentation: "/docs",
       playground: "/docs/playground",
