@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { validateRoute } from "../src/routes/validate";
 import { resolveRoute } from "../src/routes/resolve";
 import { convertRoute } from "../src/routes/convert";
+import { versionRoute } from "../src/routes/version";
 
 describe("API Integration Tests", () => {
   const app = Fastify();
@@ -11,6 +12,7 @@ describe("API Integration Tests", () => {
     await app.register(validateRoute);
     await app.register(resolveRoute);
     await app.register(convertRoute);
+    await app.register(versionRoute);
     await app.ready();
   });
 
@@ -95,6 +97,24 @@ describe("API Integration Tests", () => {
       expect(body.local_datetime).toBe("2026-06-15T16:00:00");
       expect(body.offset).toBe("+01:00");
       expect(body.time_zone).toBe("Europe/London");
+    });
+  });
+
+  describe("GET /v1/datetime/version", () => {
+    it("returns the bundled tzdata version and source", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/v1/datetime/version",
+      });
+
+      const body = JSON.parse(response.body);
+      expect(response.statusCode).toBe(200);
+      // Version format: 4 digits + 1+ lowercase letters (e.g., "2026b")
+      expect(body.tzdb_version).toMatch(/^\d{4}[a-z]+$/);
+      expect(body.tzdb_source).toBe("moment-timezone");
+      // Semver-ish — at least one dot, all-numeric segments
+      expect(body.tzdb_source_version).toMatch(/^\d+\.\d+/);
+      expect(body.api_version).toMatch(/^\d+\.\d+\.\d+/);
     });
   });
 });

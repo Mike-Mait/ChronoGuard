@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { isValidTimezone, parseDateTimeInZone, getNextValidTime, getPreviousValidTime } from "../utils/timezone";
+import { BundledIANAZone } from "../utils/bundledZone";
 import { ValidationError } from "../utils/errors";
 
 export interface ResolutionResult {
@@ -77,7 +78,7 @@ export function resolveDateTime(
   }
 
   // Valid, unambiguous time
-  const dt = DateTime.fromISO(localDatetime, { zone: timeZone });
+  const dt = DateTime.fromISO(localDatetime, { zone: BundledIANAZone.create(timeZone) });
   return {
     instant_utc: dt.toUTC().toISO()!,
     offset: formatOffset(dt.offset),

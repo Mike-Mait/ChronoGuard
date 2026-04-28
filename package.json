@@ -9,6 +9,9 @@
     "dev": "tsx watch src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "tz:check": "node scripts/tz-check.mjs",
+    "tz:update": "node scripts/tz-update.mjs",
+    "soak": "node scripts/soak.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"
   },
@@ -30,6 +33,7 @@
     "fastify": "^5.8.4",
     "ioredis": "^5.10.1",
     "luxon": "^3.7.2",
+    "moment-timezone": "^0.6.2",
     "nodemailer": "^8.0.5",
     "pino": "^10.3.1",
     "prisma": "^6.19.2",

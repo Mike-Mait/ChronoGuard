@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { isValidTimezone } from "../utils/timezone";
+import { BundledIANAZone } from "../utils/bundledZone";
 import { ValidationError } from "../utils/errors";
 
 export interface ConversionResult {
@@ -18,7 +19,7 @@ export function convertTime(instantUtc: string, targetTimeZone: string): Convers
     throw new ValidationError("Could not parse the provided UTC datetime string.");
   }
 
-  const local = utc.setZone(targetTimeZone);
+  const local = utc.setZone(BundledIANAZone.create(targetTimeZone));
 
   const formatOffset = (minutes: number) => {
     const sign = minutes >= 0 ? "+" : "-";

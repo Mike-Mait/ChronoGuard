@@ -11,6 +11,7 @@ import { config } from "./config/env";
 import { validateRoute } from "./routes/validate";
 import { resolveRoute } from "./routes/resolve";
 import { convertRoute } from "./routes/convert";
+import { versionRoute } from "./routes/version";
 import { keysRoute } from "./routes/keys";
 import { batchRoute } from "./routes/batch";
 import { webhooksRoute } from "./routes/webhooks";
@@ -35,7 +36,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription"];
+const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -279,14 +280,16 @@ async function start() {
       uptime_seconds: uptimeSec,
       started_at: startedAt.toISOString(),
       database: dbStatus,
-      timezone_data: {
-        iana_version: process.versions.tz || "unknown",
-      },
+      // tzdb version moved to /v1/datetime/version (canonical) — /status
+      // is now scoped to operational health (uptime, DB connectivity).
+      // Kept clean separation: /status = "is the server up?"
+      //                        /version = "what data am I serving?"
       endpoints: {
         validate: "/v1/datetime/validate",
         resolve: "/v1/datetime/resolve",
         convert: "/v1/datetime/convert",
         batch: "/v1/datetime/batch",
+        version: "/v1/datetime/version",
       },
       documentation: "/docs",
       playground: "/docs/playground",
@@ -367,6 +370,7 @@ async function start() {
   await app.register(validateRoute);
   await app.register(resolveRoute);
   await app.register(convertRoute);
+  await app.register(versionRoute);
   await app.register(batchRoute);
   await app.register(keysRoute);
   await app.register(contactRoute);

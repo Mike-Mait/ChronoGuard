@@ -21,14 +21,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        # Required so the bundled tzdata version (moment-timezone's
+        # data file) is available for inspection. Use `npm ci` for
+        # reproducibility — no lockfile drift in CI.
+        run: npm ci
 
       - name: Check for IANA timezone database updates
         id: tz-check
         run: |
-          # Get the IANA tz version bundled in this Node.js
-          CURRENT_TZ=$(node -e "console.log(process.versions.tz || 'unknown')")
+          # Get the IANA tz version bundled with moment-timezone (the
+          # source of truth for our API since the tzdb-decouple cutover).
+          # Previously this read process.versions.tz from Node's ICU,
+          # which is no longer the source the API uses.
+          CURRENT_TZ=$(node -e "console.log(require('moment-timezone').tz.dataVersion || 'unknown')")
           echo "current_tz=$CURRENT_TZ" >> $GITHUB_OUTPUT
-          echo "Current Node.js IANA tz version: $CURRENT_TZ"
+          echo "Current bundled tzdata (moment-timezone): $CURRENT_TZ"
 
           # Fetch the latest IANA tz release from the official source
           LATEST_TZ=$(curl -sf "https://data.iana.org/time-zones/tzdb/version" | tr -d '[:space:]')
@@ -68,7 +78,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existing.number,
-                body: `Weekly check: latest IANA tz version is **${latest}**, ChronoShield API is running **${current}**.\n\nTo update, upgrade the Node.js version in your Docker/Railway deployment.`,
+                body: `Weekly check: latest IANA tz version is **${latest}**, ChronoShield API is running **${current}**.\n\nTo update, run \`npm run tz:update\` locally and commit the resulting package-lock.json change.`,
               });
               console.log(`Updated existing issue #${existing.number}`);
             } else {
@@ -83,7 +93,7 @@ jobs:
                   ``,
                   `| | Version |`,
                   `|---|---|`,
-                  `| **Current (in Node.js)** | \`${current}\` |`,
+                  `| **Current (moment-timezone)** | \`${current}\` |`,
                   `| **Latest (from IANA)** | \`${latest}\` |`,
                   ``,
                   `### What this means`,
@@ -93,12 +103,24 @@ jobs:
                   `- Corrections to historical timezone data`,
                   ``,
                   `### How to update`,
-                  `1. **Check if a newer Node.js version** includes \`${latest}\`: https://nodejs.org/en/download`,
-                  `2. **Update the Node.js version** in your Dockerfile or Railway build settings`,
-                  `3. **Redeploy** — the updated IANA data is bundled with Node.js via ICU`,
-                  `4. **Verify** by checking \`/status\` → \`timezone_data.iana_version\``,
+                  `Since the tzdb-decouple cutover, tzdata is bundled via the \`moment-timezone\` npm package — independent of the Node.js version. To update:`,
                   ``,
-                  `> If Node.js hasn't shipped a release with \`${latest}\` yet, you can wait — Node.js typically picks up IANA updates within a few weeks.`,
+                  `1. **Run the update script locally:**`,
+                  `   \`\`\`bash`,
+                  `   npm run tz:update`,
+                  `   \`\`\``,
+                  `   This bumps moment-timezone, runs the parity harness against Luxon's IANAZone, and runs the full test suite. If anything diverges, the script reports details and exits non-zero.`,
+                  ``,
+                  `2. **If parity passes**, commit the lockfile change:`,
+                  `   \`\`\`bash`,
+                  `   git add package.json package-lock.json`,
+                  `   git commit -m "Bump tzdata: ${current} → ${latest}"`,
+                  `   git push`,
+                  `   \`\`\``,
+                  ``,
+                  `3. **If parity fails**, the failure output identifies the diverging (zone, date) pairs. Most failures here will be legitimate — moment-timezone tracking a real legislative DST change that Luxon's Intl-backed implementation doesn't have yet. If so, add the divergence to \`KNOWN_DIVERGENCES\` in \`tests/bundled-zone-fuzz.test.ts\` with a justification comment, then re-run \`npm run tz:update\`.`,
+                  ``,
+                  `4. **Verify after deploy** by hitting \`/v1/datetime/version\` to confirm the new tzdata version is live.`,
                   ``,
                   `_This issue was created automatically by the weekly tz-update-check workflow._`,
                 ].join('\n'),
@@ -112,6 +134,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| | Version |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Current (Node.js) | \`${{ steps.tz-check.outputs.current_tz }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Current (moment-timezone) | \`${{ steps.tz-check.outputs.current_tz }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Latest (IANA) | \`${{ steps.tz-check.outputs.latest_tz }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Up to date | ${{ steps.tz-check.outputs.up_to_date }} |" >> $GITHUB_STEP_SUMMARY
