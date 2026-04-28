@@ -1,7 +1,12 @@
-import { DateTime, IANAZone } from "luxon";
+import { DateTime } from "luxon";
+import { BundledIANAZone } from "./bundledZone";
 
+// All IANA zone lookups go through BundledIANAZone, which reads from a
+// bundled tzdata snapshot (currently moment-timezone 2026b) instead of
+// Node's built-in ICU. This decouples tzdb updates from Node version
+// upgrades — see src/utils/bundledZone.ts header for full rationale.
 export function isValidTimezone(zone: string): boolean {
-  return IANAZone.isValidZone(zone);
+  return BundledIANAZone.isValidZone(zone);
 }
 
 /**
@@ -26,7 +31,7 @@ function parseRawHourMinute(localDatetime: string): { hour: number; minute: numb
  * the time is near a DST transition and may be ambiguous.
  */
 export function parseDateTimeInZone(localDatetime: string, zone: string) {
-  const dt = DateTime.fromISO(localDatetime, { zone });
+  const dt = DateTime.fromISO(localDatetime, { zone: BundledIANAZone.create(zone) });
 
   if (!dt.isValid) {
     return { valid: false, dt: null, reason: "PARSE_ERROR" as const };
@@ -61,7 +66,7 @@ export function parseDateTimeInZone(localDatetime: string, zone: string) {
     // The UTC millis if we used the other offset
     const otherUTCMillis = dt.toMillis() + (dtOffset - otherOffset) * 60 * 1000;
     const otherUTC = DateTime.fromMillis(otherUTCMillis, { zone: "UTC" });
-    const otherLocal = otherUTC.setZone(zone);
+    const otherLocal = otherUTC.setZone(BundledIANAZone.create(zone));
 
     // Check if the other interpretation also maps to the same wall time
     if (otherLocal.hour === raw.hour && otherLocal.minute === raw.minute) {
@@ -100,7 +105,8 @@ export function parseDateTimeInZone(localDatetime: string, zone: string) {
  */
 export function getNextValidTime(localDatetime: string, zone: string): DateTime {
   const raw = parseRawHourMinute(localDatetime);
-  const dt = DateTime.fromISO(localDatetime, { zone });
+  const z = BundledIANAZone.create(zone);
+  const dt = DateTime.fromISO(localDatetime, { zone: z });
 
   if (!raw) return dt;
 
@@ -111,7 +117,7 @@ export function getNextValidTime(localDatetime: string, zone: string): DateTime 
   // E.g., asked for 2:30, Luxon gave 3:30. Next valid = 3:00.
   const dateStr = localDatetime.split("T")[0];
   const nextValidStr = `${dateStr}T${String(dt.hour).padStart(2, "0")}:00:00`;
-  return DateTime.fromISO(nextValidStr, { zone });
+  return DateTime.fromISO(nextValidStr, { zone: z });
 }
 
 /**
@@ -120,7 +126,8 @@ export function getNextValidTime(localDatetime: string, zone: string): DateTime 
  */
 export function getPreviousValidTime(localDatetime: string, zone: string): DateTime {
   const raw = parseRawHourMinute(localDatetime);
-  const dt = DateTime.fromISO(localDatetime, { zone });
+  const z = BundledIANAZone.create(zone);
+  const dt = DateTime.fromISO(localDatetime, { zone: z });
 
   if (!raw) return dt;
 
@@ -140,7 +147,7 @@ export function getPreviousValidTime(localDatetime: string, zone: string): DateT
   const dateStr = localDatetime.split("T")[0];
   const prevHour = raw.hour - 1;
   const prevTimeStr = `${dateStr}T${String(prevHour).padStart(2, "0")}:59:59`;
-  const prev = DateTime.fromISO(prevTimeStr, { zone });
+  const prev = DateTime.fromISO(prevTimeStr, { zone: z });
 
   return prev;
 }
