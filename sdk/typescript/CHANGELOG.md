@@ -3,6 +3,14 @@
 All notable changes to the ChronoShield TypeScript/JavaScript SDK are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] — 2026-04-28
+
+### Fixed
+- `homepage` field in package.json now points to `https://chronoshieldapi.com` (the product landing page) instead of `/docs`. Aligns with convention across major SDKs (Stripe, AWS, Google Cloud) where the npm "Homepage" link points users to the main product site rather than reference docs.
+- `repository.url` field normalized to `git+https://...` form to silence the auto-correction warning npm previously emitted on publish.
+
+No code changes — package contents are byte-identical to 1.1.0.
+
 ## [1.1.0] — 2026-04-28
 
 ### Added

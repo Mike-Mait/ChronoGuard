@@ -1,21 +1,21 @@
 {
   "name": "chronoshield",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "TypeScript/JavaScript SDK for the ChronoShield API — DST-aware datetime validation, resolution, and conversion",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
-  "files": ["dist"],
+  "files": ["dist", "CHANGELOG.md"],
   "keywords": ["timezone", "dst", "daylight-saving", "datetime", "validation", "utc", "iana", "chronoshield"],
   "author": "Mike Mait",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mike-Mait/ChronoShield-API.git",
+    "url": "git+https://github.com/Mike-Mait/ChronoShield-API.git",
     "directory": "sdk/typescript"
   },
-  "homepage": "https://chronoshieldapi.com/docs",
+  "homepage": "https://chronoshieldapi.com",
   "bugs": {
     "url": "https://github.com/Mike-Mait/ChronoShield-API/issues"
   },
