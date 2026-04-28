@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "tz:check": "node scripts/tz-check.mjs",
     "tz:update": "node scripts/tz-update.mjs",
+    "soak": "node scripts/soak.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy"
   },
