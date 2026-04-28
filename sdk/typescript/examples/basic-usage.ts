@@ -5,15 +5,21 @@
  * (Set CHRONOSHIELD_API_KEY in your environment first)
  */
 
-import { ChronoShieldClient } from "../src/index";
+import { ChronoShieldClient, ChronoShieldError } from "../src/index";
 
 const client = new ChronoShieldClient({
   apiKey: process.env.CHRONOSHIELD_API_KEY || "YOUR_API_KEY",
 });
 
 async function main() {
+  // 0. Check which IANA tzdata release the API is currently serving
+  console.log("--- Version: which tzdata is the API on? ---");
+  const version = await client.getVersion();
+  console.log(version);
+  // { tzdb_version: '2026b', tzdb_source: 'moment-timezone', ... }
+
   // 1. Validate a normal datetime (should be "valid")
-  console.log("--- Validate: Normal datetime ---");
+  console.log("\n--- Validate: Normal datetime ---");
   const valid = await client.validate({
     local_datetime: "2026-07-15T14:30:00",
     time_zone: "America/New_York",
@@ -65,6 +71,27 @@ async function main() {
   console.log(`Total: ${batch.total}, Succeeded: ${batch.succeeded}, Failed: ${batch.failed}`);
   for (const r of batch.results) {
     console.log(`  [${r.index}] ${r.operation}: ${r.success ? "OK" : "FAIL"}`, r.data || r.error);
+  }
+
+  // 7. Check rate limit state from the most recent call
+  if (client.lastRateLimit) {
+    console.log("\n--- Rate limit state ---");
+    console.log(
+      `${client.lastRateLimit.remaining} of ${client.lastRateLimit.limit} requests remaining ` +
+        `(resets ${client.lastRateLimit.resetAt.toISOString()})`
+    );
+  }
+
+  // 8. Demonstrate structured error handling
+  console.log("\n--- Error handling: invalid timezone ---");
+  try {
+    await client.convert({ instant_utc: "2026-07-15T18:00:00Z", target_time_zone: "Fake/Atlantis" });
+  } catch (err) {
+    if (err instanceof ChronoShieldError) {
+      console.log(`Caught ChronoShieldError → status=${err.status} code=${err.code}: ${err.message}`);
+    } else {
+      throw err;
+    }
   }
 }
 

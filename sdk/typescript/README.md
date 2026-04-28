@@ -56,7 +56,7 @@ const result = await client.resolve({
     invalid: "next_valid_time", // or "previous_valid_time", "reject"
   },
 });
-// result.instant_utc === "2026-11-01T05:30:00Z"
+// result.instant_utc === "2026-11-01T05:30:00.000Z"
 // result.offset === "-04:00"
 ```
 
@@ -86,6 +86,39 @@ const result = await client.batch([
 // result.results[0].success, result.results[0].data, etc.
 ```
 
+### `getVersion()` *(new in v1.1.0)*
+
+Returns which IANA tzdata release is currently powering the API. Useful for verifying that your results are computed against the tzdb release you expect — particularly when reproducing historical results or debugging timezone-rule edge cases.
+
+```typescript
+const v = await client.getVersion();
+// {
+//   tzdb_version: "2026b",
+//   tzdb_source: "moment-timezone",
+//   tzdb_source_version: "0.6.2",
+//   api_version: "1.3.0"
+// }
+```
+
+This endpoint is public — no API key required (though the SDK will send yours if configured).
+
+## Rate Limit Awareness
+
+After every authenticated call, the client updates `lastRateLimit` from the `X-RateLimit-*` response headers. Useful for proactive backoff before you actually hit a 429:
+
+```typescript
+await client.validate({ local_datetime: "...", time_zone: "..." });
+
+if (client.lastRateLimit) {
+  console.log(`${client.lastRateLimit.remaining} of ${client.lastRateLimit.limit} requests remaining`);
+  console.log(`Resets at ${client.lastRateLimit.resetAt.toISOString()}`);
+
+  if (client.lastRateLimit.remaining < 100) {
+    // back off, queue, or pause your worker
+  }
+}
+```
+
 ## Configuration
 
 ```typescript
@@ -97,16 +130,39 @@ const client = new ChronoShieldClient({
 
 ## Error Handling
 
-The SDK throws an `Error` for non-200 API responses:
+The SDK throws a typed `ChronoShieldError` for any non-2xx response. The error carries the structured fields the API returns (`code`, `message`, optional `details`) plus the HTTP status — so you can branch on machine-readable values without parsing strings:
 
 ```typescript
+import { ChronoShieldClient, ChronoShieldError } from "chronoshield";
+
 try {
   await client.validate({ local_datetime: "bad", time_zone: "Invalid/Zone" });
 } catch (err) {
-  console.error(err.message);
-  // "ChronoShield API error (400): Invalid IANA timezone"
+  if (err instanceof ChronoShieldError) {
+    console.error(`status: ${err.status}`);     // 400
+    console.error(`code:   ${err.code}`);       // "VALIDATION_FAILED"
+    console.error(`detail: ${err.message}`);    // "Invalid IANA timezone: ..."
+
+    if (err.code === "RATE_LIMIT_EXCEEDED") {
+      // back off and retry
+    }
+  } else {
+    throw err; // unexpected (network, etc.)
+  }
 }
 ```
+
+Common error codes:
+- `VALIDATION_FAILED` — request body didn't match schema
+- `INVALID_TIMEZONE` — `time_zone` isn't a valid IANA identifier
+- `UNAUTHORIZED` — API key missing or invalid
+- `RATE_LIMIT_EXCEEDED` — out of quota for this period
+
+## Notable behavior: BC permanent DST
+
+As of tzdata 2026b (which the API is currently serving), British Columbia's permanent-DST law is reflected in the data: **`America/Vancouver` and `Canada/Pacific` queries dated after 2026-11-01 return offset `-07:00` permanently** rather than alternating with `-08:00` in winter.
+
+This matches IANA's current data and is the intended behavior. To verify which tzdata release your queries are computed against at any time, call `getVersion()`.
 
 ## Get an API Key
 
@@ -119,6 +175,7 @@ try {
 - [API Documentation](https://chronoshieldapi.com/docs)
 - [GitHub Repository](https://github.com/Mike-Mait/ChronoShield-API)
 - [Status Page](https://chronoshield-api.betteruptime.com)
+- [Changelog](./CHANGELOG.md)
 
 ## License
 

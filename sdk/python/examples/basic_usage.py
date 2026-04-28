@@ -9,7 +9,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from chronoshield import ChronoShieldClient
+from chronoshield import ChronoShieldClient, ChronoShieldError
 
 client = ChronoShieldClient(
     api_key=os.environ.get("CHRONOSHIELD_API_KEY", "YOUR_API_KEY")
@@ -17,8 +17,14 @@ client = ChronoShieldClient(
 
 
 def main():
+    # 0. Check which IANA tzdata release the API is currently serving
+    print("--- Version: which tzdata is the API on? ---")
+    version = client.get_version()
+    print(version)
+    # VersionResponse(tzdb_version='2026b', tzdb_source='moment-timezone', ...)
+
     # 1. Validate a normal datetime (should be "valid")
-    print("--- Validate: Normal datetime ---")
+    print("\n--- Validate: Normal datetime ---")
     valid = client.validate("2026-07-15T14:30:00", "America/New_York")
     print(f"Status: {valid.status}")
 
@@ -64,6 +70,22 @@ def main():
     for r in batch["results"]:
         status = "OK" if r["success"] else "FAIL"
         print(f"  [{r['index']}] {r['operation']}: {status} — {r.get('data') or r.get('error')}")
+
+    # 7. Check rate limit state from the most recent call
+    if client.last_rate_limit:
+        rl = client.last_rate_limit
+        print("\n--- Rate limit state ---")
+        print(
+            f"{rl.remaining} of {rl.limit} requests remaining "
+            f"(resets {rl.reset_at.isoformat()})"
+        )
+
+    # 8. Demonstrate structured error handling
+    print("\n--- Error handling: invalid timezone ---")
+    try:
+        client.convert("2026-07-15T18:00:00Z", "Fake/Atlantis")
+    except ChronoShieldError as e:
+        print(f"Caught ChronoShieldError → status={e.status} code={e.code}: {e.message}")
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@ result = client.resolve(
     ambiguous="earlier",           # or "later", "reject"
     invalid="next_valid_time",     # or "previous_valid_time", "reject"
 )
-# result.instant_utc == "2026-11-01T05:30:00Z"
+# result.instant_utc == "2026-11-01T05:30:00.000Z"
 # result.offset == "-04:00"
 ```
 
@@ -81,6 +81,39 @@ result = client.batch([
 
 Returns a dict with keys: `results`, `total`, `succeeded`, `failed`.
 
+### `get_version()` *(new in v1.1.0)*
+
+Returns which IANA tzdata release is currently powering the API. Useful for verifying that your results are computed against the tzdb release you expect — particularly when reproducing historical results or debugging timezone-rule edge cases.
+
+```python
+v = client.get_version()
+# VersionResponse(
+#   tzdb_version='2026b',
+#   tzdb_source='moment-timezone',
+#   tzdb_source_version='0.6.2',
+#   api_version='1.3.0'
+# )
+```
+
+This endpoint is public — no API key required (though the SDK will send yours if configured).
+
+## Rate Limit Awareness
+
+After every authenticated call, the client updates `last_rate_limit` from the `X-RateLimit-*` response headers. Useful for proactive backoff before you actually hit a 429:
+
+```python
+client.validate("2026-07-15T14:30:00", "America/New_York")
+
+if client.last_rate_limit:
+    rl = client.last_rate_limit
+    print(f"{rl.remaining} of {rl.limit} requests remaining")
+    print(f"Resets at {rl.reset_at.isoformat()}")
+
+    if rl.remaining < 100:
+        # back off, queue, or pause your worker
+        ...
+```
+
 ## Configuration
 
 ```python
@@ -92,19 +125,38 @@ client = ChronoShieldClient(
 
 ## Error Handling
 
-The SDK raises `RuntimeError` for non-200 API responses:
+The SDK raises a typed `ChronoShieldError` for any non-2xx response. The exception carries the structured fields the API returns (`code`, `message`, optional `details`) plus the HTTP status — so you can branch on machine-readable values without parsing strings:
 
 ```python
+from chronoshield import ChronoShieldClient, ChronoShieldError
+
 try:
     client.validate("bad", "Invalid/Zone")
-except RuntimeError as e:
-    print(e)
-    # "ChronoShield API error (400): Invalid IANA timezone"
+except ChronoShieldError as e:
+    print(f"status: {e.status}")     # 400
+    print(f"code:   {e.code}")       # "VALIDATION_FAILED"
+    print(f"detail: {e.message}")    # "Invalid IANA timezone: ..."
+
+    if e.code == "RATE_LIMIT_EXCEEDED":
+        # back off and retry
+        ...
 ```
+
+Common error codes:
+- `VALIDATION_FAILED` — request body didn't match schema
+- `INVALID_TIMEZONE` — `time_zone` isn't a valid IANA identifier
+- `UNAUTHORIZED` — API key missing or invalid
+- `RATE_LIMIT_EXCEEDED` — out of quota for this period
+
+## Notable behavior: BC permanent DST
+
+As of tzdata 2026b (which the API is currently serving), British Columbia's permanent-DST law is reflected in the data: **`America/Vancouver` and `Canada/Pacific` queries dated after 2026-11-01 return offset `-07:00` permanently** rather than alternating with `-08:00` in winter.
+
+This matches IANA's current data and is the intended behavior. To verify which tzdata release your queries are computed against at any time, call `get_version()`.
 
 ## Zero Dependencies
 
-This SDK uses only the Python standard library (`urllib`, `json`, `dataclasses`) — no external packages required.
+This SDK uses only the Python standard library (`urllib`, `json`, `dataclasses`, `datetime`) — no external packages required.
 
 ## Get an API Key
 
@@ -117,6 +169,7 @@ This SDK uses only the Python standard library (`urllib`, `json`, `dataclasses`)
 - [API Documentation](https://chronoshieldapi.com/docs)
 - [GitHub Repository](https://github.com/Mike-Mait/ChronoShield-API)
 - [Status Page](https://chronoshield-api.betteruptime.com)
+- [Changelog](./CHANGELOG.md)
 
 ## License
 
