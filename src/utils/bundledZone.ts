@@ -112,11 +112,19 @@ export class BundledIANAZone extends Zone {
   /**
    * Offset in minutes EAST of UTC at the given epoch ms.
    * Returns NaN for invalid zones, matching Luxon's IANAZone contract.
+   *
+   * NOTE: We round to integer minutes. moment-timezone's data preserves
+   * sub-minute precision for pre-standardization LMT (Local Mean Time)
+   * offsets — e.g., America/Cancun before 1922 was -05:47:04, which moment
+   * stores as 347.0666... minutes. Luxon's Intl-backed IANAZone rounds these
+   * to whole minutes, so we match that to remain a drop-in. No modern zone
+   * uses sub-minute offsets, so this affects only pre-~1930 timestamps,
+   * which are not reachable by realistic API traffic.
    */
   offset(ts: number): number {
     if (this.momentZone === null) return NaN;
-    // moment returns WEST-positive; Luxon expects EAST-positive. Negate.
-    return -this.momentZone.utcOffset(ts);
+    // moment returns WEST-positive; Luxon expects EAST-positive. Negate, then round.
+    return Math.round(-this.momentZone.utcOffset(ts));
   }
 
   /**
