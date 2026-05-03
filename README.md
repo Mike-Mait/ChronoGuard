@@ -482,70 +482,82 @@ print(converted.local_datetime)  # "2026-06-15T16:00:00"
 
 ## AI Agent / Tool Integration
 
-ChronoShield API exposes tool schemas compatible with function-calling AI agents (OpenAI, Anthropic Claude, LangChain, etc.). The tool definitions are available in [`agent-tools.json`](./agent-tools.json).
+**ChronoShield is a preflight check for time-based AI agent actions.**
 
-### Tool: `validate_local_datetime`
+Before an agent creates a calendar event, schedules a reminder, books an appointment, sets a cron job, calculates a billing date, or converts user-entered local time to UTC — call ChronoShield. If the time falls in a DST gap, occurs twice, or uses an invalid timezone, the agent gets a structured signal instead of silently storing the wrong moment.
+
+Full agent docs: [chronoshieldapi.com/docs/ai-agents](https://chronoshieldapi.com/docs/ai-agents)
+
+### Quickest path: MCP server
+
+For Claude Desktop, Cursor, Windsurf, or any MCP-compatible client, install the ChronoShield MCP server and the four tools below become available natively — no custom integration code:
+
+```bash
+npm install -g @chronoshield/mcp
+```
+
+Claude Desktop config (`claude_desktop_config.json`):
 
 ```json
 {
-  "name": "validate_local_datetime",
-  "description": "Check if a local datetime is valid, invalid (DST gap), or ambiguous (DST overlap) in the given timezone",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "local_datetime": { "type": "string", "description": "ISO 8601 local datetime (e.g. 2026-03-08T02:30:00)" },
-      "time_zone": { "type": "string", "description": "IANA timezone identifier (e.g. America/New_York)" }
-    },
-    "required": ["local_datetime", "time_zone"]
+  "mcpServers": {
+    "chronoshield": {
+      "command": "npx",
+      "args": ["-y", "@chronoshield/mcp"],
+      "env": {
+        "CHRONOSHIELD_API_KEY": "YOUR_API_KEY"
+      }
+    }
   }
 }
 ```
 
-### Tool: `resolve_datetime`
+See [`mcp/README.md`](./mcp/README.md) for setup details.
 
-```json
-{
-  "name": "resolve_datetime",
-  "description": "Resolve an ambiguous or invalid local datetime to a UTC instant using the specified policy",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "local_datetime": { "type": "string" },
-      "time_zone": { "type": "string" },
-      "ambiguous_policy": { "type": "string", "enum": ["earlier", "later", "reject"] },
-      "invalid_policy": { "type": "string", "enum": ["next_valid_time", "previous_valid_time", "reject"] }
-    },
-    "required": ["local_datetime", "time_zone"]
-  }
-}
-```
+### Function-calling tool schemas
 
-### Tool: `convert_datetime`
+For OpenAI function calling, Anthropic Claude tool use, LangChain, Vercel AI SDK, and any other framework that accepts a JSON Schema, the canonical tool definitions are at:
 
-```json
-{
-  "name": "convert_datetime",
-  "description": "Convert a UTC instant to a local datetime in the target timezone",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "instant_utc": { "type": "string", "description": "ISO 8601 UTC datetime (e.g. 2026-06-15T15:00:00Z)" },
-      "target_time_zone": { "type": "string", "description": "IANA timezone identifier" }
-    },
-    "required": ["instant_utc", "target_time_zone"]
-  }
-}
-```
+- File: [`agent-tools.json`](./agent-tools.json)
+- Hosted: [chronoshieldapi.com/agent-tools.json](https://chronoshieldapi.com/agent-tools.json)
 
-### Example: Using with an AI Agent
+Four tools are exposed:
 
-An AI scheduling assistant can use ChronoShield API to safely book meetings:
+| Tool | When to call it |
+|---|---|
+| `validate_local_datetime` | Before acting on a user-entered local datetime — detects DST gaps, overlaps, invalid timezones |
+| `resolve_datetime` | After a user has disambiguated, or when applying a fixed policy — returns a definitive UTC instant |
+| `convert_datetime` | Display a stored UTC timestamp in a target timezone (UTC → local) |
+| `batch_datetime_operations` | Process up to 100 datetimes in one request — calendar imports, generated schedules, bulk reminders |
 
-1. User says: "Schedule a call at 2:30 AM ET on March 8, 2026"
-2. Agent calls `validate_local_datetime` → gets `status: "invalid"`, `reason_code: "DST_GAP"`
-3. Agent sees `suggested_fixes` → offers "That time doesn't exist due to daylight saving. The next available time is 3:00 AM. Should I use that?"
-4. User confirms → agent calls `resolve_datetime` with `invalid: "next_valid_time"` → gets the correct UTC instant
-5. Agent stores `2026-03-08T07:00:00.000Z` in the calendar — no bug, no silent misconversion
+### Recommended agent behavior
+
+Once `validate_local_datetime` returns:
+
+| Result | What the agent should do |
+|---|---|
+| `status: "valid"` | Proceed |
+| `reason_code: "DST_GAP"` | **Do not schedule silently.** Ask the user for an alternate time, or apply an explicit policy via `resolve_datetime` (`invalid_policy`) |
+| `reason_code: "DST_OVERLAP"` | Ask which occurrence the user means, or resolve via `resolve_datetime` (`ambiguous_policy`) |
+| `reason_code: "INVALID_TIMEZONE"` | Ask the user for a valid IANA timezone (e.g., `America/New_York`, not `EST`) |
+| HTTP 400 | Ask the user for a valid ISO 8601 datetime |
+
+### End-to-end example
+
+User says: *"Schedule a call at 2:30 AM ET on March 8, 2026"*
+
+1. Agent extracts `local_datetime: "2026-03-08T02:30:00"`, `time_zone: "America/New_York"`
+2. Agent calls `validate_local_datetime` → `{ status: "invalid", reason_code: "DST_GAP", suggested_fixes: [{ strategy: "next_valid_time", local_datetime: "2026-03-08T03:00:00" }] }`
+3. Agent: *"That time doesn't exist on March 8 due to daylight saving — clocks jump from 2:00 AM to 3:00 AM. Want me to schedule it for 3:00 AM instead?"*
+4. User confirms → agent calls `resolve_datetime` with `invalid_policy: "next_valid_time"` → gets `{ instant_utc: "2026-03-08T07:00:00.000Z" }`
+5. Agent stores the UTC instant. No silent misconversion.
+
+### Resources
+
+- [AI agent docs](https://chronoshieldapi.com/docs/ai-agents) — full integration guide
+- [`agent-tools.json`](./agent-tools.json) — copy-paste tool schemas
+- [`/llms.txt`](https://chronoshieldapi.com/llms.txt) — concise product summary for LLMs
+- [`mcp/`](./mcp) — MCP server source
 
 ---
 

@@ -21,6 +21,9 @@ __pycache__/
 # package-lock.json ignore. For the publishable SDKs we deliberately
 # don't ship a lockfile; consumers resolve against their own.
 sdk/typescript/package-lock.json
+# MCP server is also a publishable npm package — same logic as the SDKs:
+# don't ship a lockfile, consumers resolve against their own.
+mcp/package-lock.json
 
 # ─── Executed customer contracts — never commit ───
 # Signed DPAs, MSAs, and Order Forms contain customer legal names,

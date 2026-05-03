@@ -86,7 +86,7 @@
       <a href="#errors" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Error Handling</a>
       <a href="#rate-limits" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Rate Limits</a>
       <a href="#sdks" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Official SDKs</a>
-      <a href="#ai-agents" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">AI Agent Integration</a>
+      <a href="/docs/ai-agents" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">AI Agent Integration <span class="ml-1 text-[9px] text-brand-400">&rarr;</span></a>
     </nav>
 
     <!-- ─── MAIN CONTENT ─── -->
@@ -644,36 +644,33 @@ print(result.status)  # "invalid"</code></pre>
         </div>
       </section>
 
-      <!-- ─── AI AGENTS ─── -->
+      <!-- ─── AI AGENTS (moved to dedicated page) ─── -->
       <section id="ai-agents" class="mb-16">
         <h2 class="text-xl font-bold text-white mb-4">AI Agent / Tool Integration</h2>
-        <p class="text-sm text-slate-400 mb-4">ChronoShield API exposes tool schemas compatible with function-calling AI agents (OpenAI, Anthropic Claude, LangChain, CrewAI, etc.). Download the schemas from <a href="https://github.com/Mike-Mait/ChronoShield-API/blob/master/agent-tools.json" class="text-brand-400 hover:underline">agent-tools.json</a>.</p>
-
-        <h3 class="text-sm font-semibold text-white mb-2">Available tools</h3>
-        <div class="space-y-3 mb-6">
-          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-            <code class="text-sm text-brand-300 font-semibold">validate_local_datetime</code>
-            <p class="text-xs text-slate-400 mt-1">Check if a local datetime is valid, invalid (DST gap), or ambiguous (DST overlap)</p>
+        <div class="rounded-xl border border-brand-500/30 bg-brand-500/5 p-6">
+          <div class="flex items-start gap-4">
+            <div class="shrink-0 w-10 h-10 rounded-lg bg-brand-500/10 border border-brand-500/30 flex items-center justify-center">
+              <svg class="w-5 h-5 text-brand-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-white mb-2">Full AI agent guide moved to its own page</h3>
+              <p class="text-sm text-slate-400 mb-4">ChronoShield is a preflight check for time-based AI agent actions. The dedicated guide covers MCP server setup (Claude Desktop, Cursor, Windsurf), OpenAI tool calling, Claude tool use, LangChain, Vercel AI SDK, recommended agent behavior per reason code, and end-to-end examples.</p>
+              <a href="/docs/ai-agents" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors">
+                Open the AI agent guide
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+              </a>
+            </div>
           </div>
-          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-            <code class="text-sm text-brand-300 font-semibold">resolve_datetime</code>
-            <p class="text-xs text-slate-400 mt-1">Resolve an ambiguous or invalid local datetime to a UTC instant using the specified policy</p>
+          <div class="mt-6 grid sm:grid-cols-2 gap-3 text-xs">
+            <a href="/agent-tools.json" class="block p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+              <code class="text-brand-300 font-semibold">/agent-tools.json</code>
+              <p class="text-slate-500 mt-1">Canonical tool schemas for OpenAI, Claude, LangChain, etc.</p>
+            </a>
+            <a href="/llms.txt" class="block p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+              <code class="text-brand-300 font-semibold">/llms.txt</code>
+              <p class="text-slate-500 mt-1">Plain-text product summary for LLMs.</p>
+            </a>
           </div>
-          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-            <code class="text-sm text-brand-300 font-semibold">convert_datetime</code>
-            <p class="text-xs text-slate-400 mt-1">Convert a UTC instant to a local datetime in the target timezone</p>
-          </div>
-        </div>
-
-        <h3 class="text-sm font-semibold text-white mb-2">Example: AI scheduling assistant</h3>
-        <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
-          <ol class="text-sm text-slate-400 space-y-3 list-decimal list-inside leading-relaxed">
-            <li>User says: <em class="text-white">"Schedule a call at 2:30 AM ET on March 8, 2026"</em></li>
-            <li>Agent calls <code class="text-brand-300">validate_local_datetime</code> &rarr; gets <code class="text-red-400">status: "invalid"</code>, <code class="text-brand-300">reason_code: "DST_GAP"</code></li>
-            <li>Agent reads <code class="text-brand-300">suggested_fixes</code> &rarr; responds: <em class="text-white">"That time doesn't exist (daylight saving). The next available time is 3:00 AM. Use that?"</em></li>
-            <li>User confirms &rarr; agent calls <code class="text-brand-300">resolve_datetime</code> with <code class="text-brand-300">invalid: "next_valid_time"</code></li>
-            <li>Agent stores <code class="text-emerald-400">2026-03-08T07:00:00Z</code> &mdash; no bug, no silent misconversion</li>
-          </ol>
         </div>
       </section>
 

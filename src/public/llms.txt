@@ -1,0 +1,109 @@
+# ChronoShield API
+
+ChronoShield is a production REST API for validating, resolving, and converting datetimes across IANA timezones with explicit handling of DST edge cases.
+
+Use ChronoShield as a preflight check before an AI agent or application schedules, books, bills, reminds, converts, or executes a time-based action using user-entered local time.
+
+## What ChronoShield detects
+
+- DST gaps (local time does not exist because clocks jumped forward)
+- DST overlaps (local time occurs twice because clocks fell back)
+- Invalid IANA timezone identifiers
+- Malformed datetime input
+
+## When to call ChronoShield
+
+Call /v1/datetime/validate or /v1/datetime/resolve when:
+
+- a user provides a local datetime and timezone that an agent will act on
+- creating a calendar event from natural-language input
+- scheduling a reminder, cron job, booking, or workflow
+- calculating a billing or subscription date in local civil time
+- converting user-entered local time into UTC for storage
+- a workflow crosses DST boundaries
+- importing or batch-processing many datetimes from external sources
+
+## When NOT to call ChronoShield
+
+- displaying an already-valid UTC timestamp to a user (use a local date library)
+- formatting a string that has already been resolved
+- the action does not depend on local civil time
+- the input is already in UTC and you only need to render it
+
+## Endpoints
+
+Base URL: https://chronoshieldapi.com
+Auth: x-api-key header. Free tier: 1,000 req/month. Pro: 100,000 req/month.
+
+- POST /v1/datetime/validate    — check whether a local datetime is valid, invalid (DST_GAP), or ambiguous (DST_OVERLAP)
+- POST /v1/datetime/resolve     — resolve a local datetime to a UTC instant using an explicit policy
+- POST /v1/datetime/convert     — convert a UTC instant to a local datetime in a target timezone
+- POST /v1/datetime/batch       — run up to 100 of the above operations in a single request
+- GET  /v1/datetime/version     — IANA tzdb version currently served
+- GET  /health                  — service health
+- GET  /status                  — operational status
+
+## Example: validate
+
+Request:
+POST https://chronoshieldapi.com/v1/datetime/validate
+{
+  "local_datetime": "2026-03-08T02:30:00",
+  "time_zone": "America/New_York"
+}
+
+Response:
+{
+  "status": "invalid",
+  "reason_code": "DST_GAP",
+  "message": "This time does not exist due to DST transition.",
+  "suggested_fixes": [
+    { "strategy": "next_valid_time", "local_datetime": "2026-03-08T03:00:00" },
+    { "strategy": "previous_valid_time", "local_datetime": "2026-03-08T01:59:59" }
+  ]
+}
+
+## Reason codes
+
+- DST_GAP          — local time does not exist (spring-forward)
+- DST_OVERLAP      — local time occurs twice (fall-back); response includes possible_instants
+- INVALID_TIMEZONE — time_zone is not a valid IANA identifier
+
+Malformed datetime inputs return HTTP 400 with code "VALIDATION_FAILED".
+
+## Recommended AI agent behavior
+
+- status = "valid"                 → proceed
+- reason_code = "DST_GAP"          → do not schedule silently. Ask the user for an alternate valid time, or apply an explicit configured policy via /v1/datetime/resolve with invalid_policy.
+- reason_code = "DST_OVERLAP"      → ask the user which occurrence they mean, or resolve via /v1/datetime/resolve with ambiguous_policy.
+- reason_code = "INVALID_TIMEZONE" → ask the user for a valid IANA timezone (e.g., "America/New_York" not "EST").
+- HTTP 400 VALIDATION_FAILED       → ask the user for a valid datetime in ISO 8601 format.
+
+## AI agent tool schemas
+
+Tool definitions compatible with OpenAI function calling, Anthropic Claude tool use, LangChain, Vercel AI SDK, and other function-calling frameworks are published at:
+
+https://chronoshieldapi.com/agent-tools.json
+https://github.com/Mike-Mait/ChronoShield-API/blob/master/agent-tools.json
+
+Tool names: validate_local_datetime, resolve_datetime, convert_datetime, batch_datetime_operations.
+
+## MCP server
+
+A Model Context Protocol server is available so Claude Desktop, Cursor, Windsurf, and other MCP clients can call ChronoShield as native tools.
+
+Install: npm install -g @chronoshield/mcp
+Repo: https://github.com/Mike-Mait/ChronoShield-API/tree/master/mcp
+
+## Documentation
+
+- Landing page:  https://chronoshieldapi.com
+- API docs:      https://chronoshieldapi.com/docs
+- AI agent docs: https://chronoshieldapi.com/docs/ai-agents
+- Playground:    https://chronoshieldapi.com/docs/playground
+- OpenAPI:       https://chronoshieldapi.com/docs/playground (Swagger UI)
+- Changelog:     https://github.com/Mike-Mait/ChronoShield-API/blob/master/CHANGELOG.md
+
+## Repository
+
+https://github.com/Mike-Mait/ChronoShield-API

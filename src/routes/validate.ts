@@ -7,7 +7,9 @@ export async function validateRoute(app: FastifyInstance) {
     "/v1/datetime/validate",
     {
       schema: {
-        description: "Validate a local datetime in a given timezone, detecting DST gaps and overlaps",
+        summary: "Validate a local datetime",
+        description:
+          "Preflight check for a user-entered local datetime in an IANA timezone. Use this before an application or AI agent schedules, books, bills, reminds, converts, or executes a time-based action — it detects DST gaps (time does not exist), DST overlaps (time occurs twice), and invalid IANA timezone identifiers. Returns 'valid', 'invalid', or 'ambiguous' so callers can decide whether to proceed, ask the user to disambiguate, or apply an explicit policy via /v1/datetime/resolve.",
         tags: ["datetime"],
         body: {
           type: "object",

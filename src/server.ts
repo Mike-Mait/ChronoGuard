@@ -36,7 +36,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription"];
+const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription", "/llms.txt", "/agent-tools.json"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -299,9 +299,28 @@ async function start() {
 
   // Pre-load static HTML files into memory
   const htmlCache: Record<string, string> = {};
-  for (const page of ["index", "docs", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
+  for (const page of ["index", "docs", "ai-agents", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
     htmlCache[page] = fs.readFileSync(path.join(__dirname, "public", `${page}.html`), "utf-8");
   }
+
+  // Pre-load llms.txt (LLM-friendly product summary served as text/plain).
+  // Tucked next to the static HTML so the existing build step (cpSync of
+  // src/public -> dist/public) ships it without any extra config.
+  const llmsTxt = fs.readFileSync(path.join(__dirname, "public", "llms.txt"), "utf-8");
+
+  // Pre-load agent-tools.json — the canonical tool-schema source consumed by
+  // AI agent docs, the README, and external function-calling integrations.
+  // Serving it from the API itself means there's one stable URL to point
+  // integrators at, independent of GitHub branch state.
+  //
+  // The build step (`npm run build`) copies the file from the repo root into
+  // dist/, so in the production Docker image (which only ships dist/) it
+  // sits next to server.js. In dev (`tsx watch src/server.ts`), __dirname
+  // is src/ and the file lives one level up. Fallback covers both.
+  const agentToolsPath = fs.existsSync(path.join(__dirname, "agent-tools.json"))
+    ? path.join(__dirname, "agent-tools.json")
+    : path.join(__dirname, "..", "agent-tools.json");
+  const agentToolsJson = fs.readFileSync(agentToolsPath, "utf-8");
 
   app.get("/favicon.svg", { schema: { hide: true } }, async (_request, reply) => {
     return reply
@@ -317,9 +336,36 @@ async function start() {
       .send(logoSvg);
   });
 
+  // llms.txt — LLM-friendly product summary so models that fetch this
+  // well-known path get a concise, structured pitch + endpoint list +
+  // recommended agent behavior. See /docs/ai-agents for the human version.
+  app.get("/llms.txt", { schema: { hide: true } }, async (_request, reply) => {
+    return reply
+      .type("text/plain; charset=utf-8")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(llmsTxt);
+  });
+
+  // agent-tools.json — canonical tool-schema definitions for OpenAI function
+  // calling, Claude tool use, LangChain, Vercel AI SDK, and other
+  // function-calling frameworks. Stable URL so docs and READMEs can link
+  // here instead of pinning to a GitHub commit.
+  app.get("/agent-tools.json", { schema: { hide: true } }, async (_request, reply) => {
+    return reply
+      .type("application/json; charset=utf-8")
+      .header("Cache-Control", "public, max-age=3600")
+      .send(agentToolsJson);
+  });
+
   // Custom docs page
   app.get("/docs", { schema: { hide: true } }, async (_request, reply) => {
     return reply.type("text/html").send(htmlCache.docs);
+  });
+
+  // AI agent integration page (separate from main /docs because this is a
+  // distinct audience — agent developers, not REST API integrators).
+  app.get("/docs/ai-agents", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["ai-agents"]);
   });
 
   // Terms of Service

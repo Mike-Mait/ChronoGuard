@@ -45,8 +45,9 @@ export async function batchRoute(app: FastifyInstance) {
     "/v1/datetime/batch",
     {
       schema: {
+        summary: "Batch validate, resolve, and convert",
         description:
-          "Process multiple datetime operations in a single request. Supports validate, resolve, and convert operations. Max 100 items per batch.",
+          "Run up to 100 validate, resolve, and convert operations in a single request. Use this when an application or AI agent needs to process a list of datetimes at once — calendar imports, generated schedules, bulk reminder creation — instead of paying one round-trip per item. Each item gets its own success/error result; partial failures don't fail the whole batch.",
         tags: ["datetime"],
         body: {
           type: "object",

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoShield API &mdash; For AI Agents</title>
+  <meta name="description" content="ChronoShield is a preflight check for time-based AI agent actions. Validate user-entered local datetimes for DST gaps, overlaps, and invalid timezones before scheduling, booking, billing, or executing." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    :target { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <!-- ─── TOP BAR ─── -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Shield</span> <span class="text-brand-300 text-xs font-semibold">API</span></span>
+        <span class="text-xs text-slate-600 ml-1">For AI Agents</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs" class="text-slate-500 hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/docs/playground" class="text-slate-500 hover:text-slate-300 transition-colors">Playground</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <!-- ─── SIDEBAR ─── -->
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Overview</p>
+      <a href="#why" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Why this exists</a>
+      <a href="#when" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">When to call it</a>
+      <a href="#when-not" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">When NOT to call it</a>
+      <a href="#policy" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Recommended behavior</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Integrations</p>
+      <a href="#mcp" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">MCP server</a>
+      <a href="#openai" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">OpenAI tool calling</a>
+      <a href="#claude" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Claude tool use</a>
+      <a href="#langchain" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">LangChain</a>
+      <a href="#vercel" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Vercel AI SDK</a>
+      <a href="#curl" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Plain REST</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Reference</p>
+      <a href="#tools" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Tool catalog</a>
+      <a href="#example" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">End-to-end example</a>
+      <a href="#resources" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Resources</a>
+    </nav>
+
+    <!-- ─── MAIN CONTENT ─── -->
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- HERO -->
+      <section id="why" class="mb-16">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-semibold mb-4">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          For AI Agent Developers
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">ChronoShield for AI Agents</h1>
+        <p class="mt-4 text-base text-slate-300 leading-relaxed max-w-2xl">
+          <strong class="text-white">ChronoShield is a preflight check for time-based AI agent actions.</strong> Use it before an agent schedules a meeting, books an appointment, sets a reminder, creates a cron job, calculates a billing date, or converts user-entered local time to UTC.
+        </p>
+        <p class="mt-4 text-sm text-slate-400 leading-relaxed max-w-2xl">
+          AI agents shouldn't blindly act on user-entered local datetimes. Some local times don't exist (DST spring-forward gaps). Others occur twice (DST fall-back overlaps). ChronoShield validates these inputs against the IANA timezone database so agents detect the problem and ask the user, instead of silently storing the wrong moment.
+        </p>
+
+        <div class="mt-8 grid sm:grid-cols-3 gap-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1.5">DST Gap</div>
+            <p class="text-xs text-slate-400 leading-relaxed"><code class="text-brand-300">2:30 AM</code> on a spring-forward Sunday in New York &mdash; that time will never exist.</p>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-1.5">DST Overlap</div>
+            <p class="text-xs text-slate-400 leading-relaxed"><code class="text-brand-300">1:30 AM</code> on a fall-back Sunday &mdash; happens twice. Which one did the user mean?</p>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1.5">Invalid Timezone</div>
+            <p class="text-xs text-slate-400 leading-relaxed">User says <code class="text-brand-300">"EST"</code>. That's an abbreviation, not a real IANA zone.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHEN TO CALL -->
+      <section id="when" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">When to call ChronoShield</h2>
+        <p class="text-sm text-slate-400 mb-4">Call <code class="text-brand-300">validate_local_datetime</code> when an AI agent is about to:</p>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Create a calendar event from natural-language input</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Schedule a reminder, alarm, or notification</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Book an appointment, table, or pickup</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Set up a cron job or recurring schedule</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Calculate a billing or subscription cycle in local time</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Convert user-entered local time to UTC for storage</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Trigger any time-based workflow automation</span>
+          </div>
+          <div class="flex items-start gap-2 p-3 rounded-lg border border-slate-800 bg-slate-900/30">
+            <svg class="w-4 h-4 text-brand-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span class="text-sm text-slate-300">Process a list of datetimes in bulk (use the batch endpoint)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHEN NOT TO CALL -->
+      <section id="when-not" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">When NOT to call ChronoShield</h2>
+        <p class="text-sm text-slate-400 mb-4">You usually don't need ChronoShield when:</p>
+        <ul class="space-y-2 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><span class="text-slate-600 mt-0.5">&times;</span><span>The datetime is already stored as UTC and you only need to render it in a user's timezone &mdash; use a local date library.</span></li>
+          <li class="flex items-start gap-2"><span class="text-slate-600 mt-0.5">&times;</span><span>You're formatting an already-resolved timestamp for display.</span></li>
+          <li class="flex items-start gap-2"><span class="text-slate-600 mt-0.5">&times;</span><span>The action doesn't depend on local civil time (e.g., logging a UTC timestamp).</span></li>
+          <li class="flex items-start gap-2"><span class="text-slate-600 mt-0.5">&times;</span><span>The user-supplied datetime already includes a UTC offset (e.g., <code>2026-03-08T07:00:00Z</code>) &mdash; the offset removes the ambiguity.</span></li>
+        </ul>
+      </section>
+
+      <!-- RECOMMENDED BEHAVIOR -->
+      <section id="policy" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Recommended agent behavior</h2>
+        <p class="text-sm text-slate-400 mb-6">Wire your agent's decision logic to these results:</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900">
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Result</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Agent should</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top"><code class="text-emerald-300 text-xs">status: "valid"</code></td>
+                <td class="px-4 py-3 text-slate-400 text-xs">Proceed.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top"><code class="text-red-300 text-xs">reason_code: "DST_GAP"</code></td>
+                <td class="px-4 py-3 text-slate-400 text-xs"><strong class="text-white">Do not schedule silently.</strong> Surface the conflict, ask the user for an alternate time, or apply an explicit policy via <code class="text-brand-300">resolve_datetime</code> with <code>invalid_policy: "next_valid_time"</code>.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top"><code class="text-amber-300 text-xs">reason_code: "DST_OVERLAP"</code></td>
+                <td class="px-4 py-3 text-slate-400 text-xs">Ask which occurrence the user means, or resolve via <code class="text-brand-300">resolve_datetime</code> with <code>ambiguous_policy: "earlier"</code> or <code>"later"</code>.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top"><code class="text-red-300 text-xs">reason_code: "INVALID_TIMEZONE"</code></td>
+                <td class="px-4 py-3 text-slate-400 text-xs">Ask the user for a valid IANA timezone &mdash; <code>America/New_York</code>, not <code>EST</code>.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top"><code class="text-red-300 text-xs">HTTP 400</code></td>
+                <td class="px-4 py-3 text-slate-400 text-xs">Datetime input is malformed. Ask for ISO 8601 format like <code>2026-03-08T02:30:00</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- MCP SERVER -->
+      <section id="mcp" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">MCP server (Claude Desktop, Cursor, Windsurf)</h2>
+        <p class="text-sm text-slate-400 mb-6">For MCP-compatible clients, install the ChronoShield MCP server and the four tools become available natively &mdash; no integration code.</p>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Install</h3>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden mb-6">
+          <pre class="text-sm p-4 text-slate-300"><code>npm install -g @chronoshield/mcp</code></pre>
+        </div>
+
+        <h3 class="text-sm font-semibold text-white mb-2">Claude Desktop config</h3>
+        <p class="text-xs text-slate-500 mb-3">Add this to <code>claude_desktop_config.json</code> (Settings &rarr; Developer &rarr; Edit Config):</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300"><code>{
+  "mcpServers": {
+    "chronoshield": {
+      "command": "npx",
+      "args": ["-y", "@chronoshield/mcp"],
+      "env": {
+        "CHRONOSHIELD_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}</code></pre>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">Restart Claude Desktop. You should see the ChronoShield tools appear in the tool picker. Try: <em class="text-slate-400">"Schedule a reminder for 2:30 AM on March 8, 2026 in New York."</em></p>
+      </section>
+
+      <!-- OPENAI -->
+      <section id="openai" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">OpenAI tool calling</h2>
+        <p class="text-sm text-slate-400 mb-6">Drop the canonical tool schema directly into your <code>tools</code> array. The full set is at <a href="/agent-tools.json" class="text-brand-400 hover:underline">/agent-tools.json</a>.</p>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden mb-4">
+          <div class="px-4 py-2.5 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-brand-400">Tool definition</div>
+          <pre class="text-sm p-4 text-slate-300"><code>{
+  type: "function",
+  function: {
+    name: "validate_local_datetime",
+    description:
+      "Preflight check for a user-entered local datetime. Call this BEFORE an agent schedules a meeting, books an appointment, sets a reminder, creates a cron job, calculates a billing date, or converts local time to UTC. Detects DST gaps, DST overlaps, and invalid IANA timezone IDs.",
+    parameters: {
+      type: "object",
+      properties: {
+        local_datetime: {
+          type: "string",
+          description: "Local datetime without offset, e.g. 2026-03-08T02:30:00"
+        },
+        time_zone: {
+          type: "string",
+          description: "IANA timezone, e.g. America/New_York"
+        }
+      },
+      required: ["local_datetime", "time_zone"]
+    }
+  }
+}</code></pre>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-brand-400">Implementation</div>
+          <pre class="text-sm p-4 text-slate-300"><code>async function validateLocalDatetime(args) {
+  const res = await fetch("https://chronoshieldapi.com/v1/datetime/validate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.CHRONOSHIELD_API_KEY
+    },
+    body: JSON.stringify(args)
+  });
+  return res.json();
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- CLAUDE -->
+      <section id="claude" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">Claude tool use</h2>
+        <p class="text-sm text-slate-400 mb-6">Pass the tool definition in your <code>tools</code> parameter to <code>messages.create</code>.</p>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300"><code>{
+  name: "validate_local_datetime",
+  description:
+    "Preflight check for a user-entered local datetime. Call this BEFORE an agent schedules, books, bills, reminds, converts, or executes a time-based action. Detects DST gaps, DST overlaps, and invalid IANA timezone IDs.",
+  input_schema: {
+    type: "object",
+    properties: {
+      local_datetime: { type: "string", description: "Local datetime without offset, e.g. 2026-03-08T02:30:00" },
+      time_zone:      { type: "string", description: "IANA timezone, e.g. America/New_York" }
+    },
+    required: ["local_datetime", "time_zone"]
+  }
+}</code></pre>
+        </div>
+
+        <p class="text-xs text-slate-500 mt-4">Add to your system prompt: <em class="text-slate-400">"Use validate_local_datetime before acting on any user-entered local datetime that will create, modify, schedule, book, bill, remind, convert, or execute something."</em></p>
+      </section>
+
+      <!-- LANGCHAIN -->
+      <section id="langchain" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">LangChain</h2>
+        <p class="text-sm text-slate-400 mb-6">TypeScript example using <code>DynamicStructuredTool</code>:</p>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300"><code>import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
+
+export const validateLocalDatetime = new DynamicStructuredTool({
+  name: "validate_local_datetime",
+  description:
+    "Preflight check for a user-entered local datetime. Call BEFORE scheduling, booking, billing, reminders, cron jobs, or workflow automation. Detects DST gaps, overlaps, invalid IANA timezone IDs.",
+  schema: z.object({
+    local_datetime: z.string().describe("Local datetime, e.g. 2026-03-08T02:30:00"),
+    time_zone:      z.string().describe("IANA timezone, e.g. America/New_York")
+  }),
+  func: async ({ local_datetime, time_zone }) => {
+    const res = await fetch("https://chronoshieldapi.com/v1/datetime/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.CHRONOSHIELD_API_KEY!
+      },
+      body: JSON.stringify({ local_datetime, time_zone })
+    });
+    return JSON.stringify(await res.json());
+  }
+});</code></pre>
+        </div>
+      </section>
+
+      <!-- VERCEL AI SDK -->
+      <section id="vercel" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">Vercel AI SDK</h2>
+        <p class="text-sm text-slate-400 mb-6">Using <code>tool()</code> from <code>ai</code>:</p>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300"><code>import { tool } from "ai";
+import { z } from "zod";
+
+export const validateLocalDatetime = tool({
+  description:
+    "Preflight check for a user-entered local datetime. Call BEFORE an agent schedules, books, bills, reminds, converts, or executes a time-based action.",
+  parameters: z.object({
+    local_datetime: z.string().describe("Local datetime without offset, e.g. 2026-03-08T02:30:00"),
+    time_zone:      z.string().describe("IANA timezone, e.g. America/New_York")
+  }),
+  execute: async ({ local_datetime, time_zone }) => {
+    const res = await fetch("https://chronoshieldapi.com/v1/datetime/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.CHRONOSHIELD_API_KEY!
+      },
+      body: JSON.stringify({ local_datetime, time_zone })
+    });
+    return res.json();
+  }
+});</code></pre>
+        </div>
+      </section>
+
+      <!-- CURL FALLBACK -->
+      <section id="curl" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-2">Plain REST (any framework)</h2>
+        <p class="text-sm text-slate-400 mb-6">If your agent framework isn't listed above, just call the REST endpoint:</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400">POST</span>
+            <span class="text-xs font-mono text-slate-400">/v1/datetime/validate</span>
+          </div>
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>curl -X POST https://chronoshieldapi.com/v1/datetime/validate \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{
+    "local_datetime": "2026-03-08T02:30:00",
+    "time_zone": "America/New_York"
+  }'</code></pre>
+        </div>
+      </section>
+
+      <!-- TOOL CATALOG -->
+      <section id="tools" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Tool catalog</h2>
+        <p class="text-sm text-slate-400 mb-6">Four tools, in order of how often you'll use them. Full schemas: <a href="/agent-tools.json" class="text-brand-400 hover:underline">/agent-tools.json</a>.</p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-slate-800 rounded-lg overflow-hidden">
+            <thead><tr class="bg-slate-900">
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">Tool</th>
+              <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-400">When to call it</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top font-mono text-brand-300 text-xs">validate_local_datetime</td>
+                <td class="px-4 py-3 text-xs text-slate-400">Preflight check before acting on a user-entered local datetime. Detects DST gaps, overlaps, invalid timezones.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top font-mono text-brand-300 text-xs">resolve_datetime</td>
+                <td class="px-4 py-3 text-xs text-slate-400">After the user has disambiguated, or when applying a fixed policy. Returns a definitive UTC instant.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top font-mono text-brand-300 text-xs">convert_datetime</td>
+                <td class="px-4 py-3 text-xs text-slate-400">Display a stored UTC timestamp in a target IANA timezone (UTC &rarr; local). Unambiguous.</td>
+              </tr>
+              <tr class="border-t border-slate-800">
+                <td class="px-4 py-3 align-top font-mono text-brand-300 text-xs">batch_datetime_operations</td>
+                <td class="px-4 py-3 text-xs text-slate-400">Up to 100 datetimes in one request &mdash; calendar imports, generated schedules, bulk reminders.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- END-TO-END EXAMPLE -->
+      <section id="example" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">End-to-end example: DST gap</h2>
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">User says</div>
+          <p class="text-sm text-slate-300 italic">"Schedule a call at 2:30 AM ET on March 8, 2026."</p>
+        </div>
+
+        <ol class="space-y-3 text-sm text-slate-400">
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-bold flex items-center justify-center">1</span>
+            <span><strong class="text-white">Agent extracts</strong> <code class="text-brand-300 text-xs">local_datetime: "2026-03-08T02:30:00"</code>, <code class="text-brand-300 text-xs">time_zone: "America/New_York"</code></span>
+          </li>
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-bold flex items-center justify-center">2</span>
+            <span><strong class="text-white">Agent calls</strong> <code class="text-brand-300 text-xs">validate_local_datetime</code> &rarr; receives:</span>
+          </li>
+        </ol>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden my-4 ml-9">
+          <pre class="text-sm p-4 text-slate-300"><code>{
+  "status": "invalid",
+  "reason_code": "DST_GAP",
+  "message": "This time does not exist due to DST transition.",
+  "suggested_fixes": [
+    { "strategy": "next_valid_time", "local_datetime": "2026-03-08T03:00:00" },
+    { "strategy": "previous_valid_time", "local_datetime": "2026-03-08T01:59:59" }
+  ]
+}</code></pre>
+        </div>
+
+        <ol class="space-y-3 text-sm text-slate-400" start="3">
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-bold flex items-center justify-center">3</span>
+            <span><strong class="text-white">Agent does NOT schedule silently.</strong> Replies: <em class="text-slate-300">"That time doesn't exist on March 8 — clocks jump from 2:00 AM to 3:00 AM for daylight saving. Want me to schedule it for 3:00 AM instead?"</em></span>
+          </li>
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-bold flex items-center justify-center">4</span>
+            <span><strong class="text-white">User confirms.</strong> Agent calls <code class="text-brand-300 text-xs">resolve_datetime</code> with <code class="text-xs">invalid_policy: "next_valid_time"</code> &rarr; gets <code class="text-emerald-300 text-xs">{ instant_utc: "2026-03-08T07:00:00.000Z" }</code></span>
+          </li>
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 text-xs font-bold flex items-center justify-center">5</span>
+            <span><strong class="text-white">Agent stores the UTC instant.</strong> No silent misconversion. No 4 AM phone call.</span>
+          </li>
+        </ol>
+      </section>
+
+      <!-- RESOURCES -->
+      <section id="resources" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Resources</h2>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <a href="/agent-tools.json" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">/agent-tools.json</div>
+            <div class="text-xs text-slate-500">Canonical tool schemas. Hosted, stable URL &mdash; safe to link from your codebase or docs.</div>
+          </a>
+          <a href="/llms.txt" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">/llms.txt</div>
+            <div class="text-xs text-slate-500">Plain-text product summary for LLMs and agents that fetch the well-known path.</div>
+          </a>
+          <a href="/docs" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">REST API docs</div>
+            <div class="text-xs text-slate-500">Full endpoint reference, schemas, error handling, SDKs.</div>
+          </a>
+          <a href="/docs/playground" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">API Playground</div>
+            <div class="text-xs text-slate-500">Interactive Swagger UI &mdash; try the endpoints with your key.</div>
+          </a>
+          <a href="https://github.com/Mike-Mait/ChronoShield-API" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">GitHub</div>
+            <div class="text-xs text-slate-500">Source, issues, MCP server package.</div>
+          </a>
+          <a href="mailto:info@chronoshieldapi.com" class="block p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors">
+            <div class="text-sm font-semibold text-white mb-1">Talk to us</div>
+            <div class="text-xs text-slate-500">Building an agent with hard timezone requirements? <a class="text-brand-400">info@chronoshieldapi.com</a></div>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="border-t border-slate-800/40 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+      <div>&copy; 2026 ChronoShield API. All rights reserved.</div>
+      <div class="flex items-center gap-5">
+        <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/terms" class="hover:text-slate-300 transition-colors">Terms</a>
+        <a href="/privacy" class="hover:text-slate-300 transition-colors">Privacy</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ─── SIDEBAR ACTIVE STATE ─── -->
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach((link) => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>

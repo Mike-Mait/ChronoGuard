@@ -8,7 +8,9 @@ export async function convertRoute(app: FastifyInstance) {
     "/v1/datetime/convert",
     {
       schema: {
-        description: "Convert a UTC instant to a local datetime in a target timezone",
+        summary: "Convert a UTC instant to local time",
+        description:
+          "Convert a UTC instant to a local datetime in a target IANA timezone. Use this when displaying a stored UTC timestamp to a user in their region or formatting a time for a destination timezone — a UTC instant maps to exactly one local time, so this is unambiguous. Do NOT use this to interpret user-entered local time; use /v1/datetime/validate or /v1/datetime/resolve for that.",
         tags: ["datetime"],
         body: {
           type: "object",

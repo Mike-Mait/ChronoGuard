@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "chronoshield": {
+      "command": "npx",
+      "args": ["-y", "@chronoshield/mcp"],
+      "env": {
+        "CHRONOSHIELD_API_KEY": "YOUR_API_KEY_HERE"
+      }
+    }
+  }
+}

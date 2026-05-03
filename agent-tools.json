@@ -1,51 +1,77 @@
 [
   {
     "name": "validate_local_datetime",
-    "description": "Check if a local datetime is valid, invalid (DST gap), or ambiguous (DST overlap) in the given timezone",
+    "description": "Preflight check for a user-entered local datetime. Call this BEFORE an agent schedules a meeting, books an appointment, sets a reminder, creates a cron job, calculates a billing date, converts local time to UTC, or otherwise acts on a local datetime. Returns whether the time is valid, falls in a DST gap (does not exist), or falls in a DST overlap (occurs twice). If the result is not 'valid', do not act silently — ask the user to disambiguate or apply an explicit policy.",
     "input_schema": {
       "type": "object",
       "properties": {
-        "local_datetime": { "type": "string", "description": "ISO 8601 local datetime (e.g. 2026-03-08T02:30:00)" },
-        "time_zone": { "type": "string", "description": "IANA timezone identifier (e.g. America/New_York)" }
+        "local_datetime": {
+          "type": "string",
+          "description": "Local datetime in ISO 8601 format without a timezone offset. Example: 2026-03-08T02:30:00. Interpreted in the supplied IANA timezone."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "IANA timezone identifier such as America/New_York, Europe/London, Asia/Tokyo, or Australia/Lord_Howe. Do not pass abbreviations like 'EST' or fixed offsets like 'UTC-5'."
+        }
       },
       "required": ["local_datetime", "time_zone"]
     }
   },
   {
     "name": "resolve_datetime",
-    "description": "Resolve an ambiguous or invalid local datetime to a UTC instant using the specified policy",
+    "description": "Resolve a local datetime to a definitive UTC instant using an explicit policy for ambiguous (DST overlap) and invalid (DST gap) times. Call this when an agent has confirmed how to handle edge cases and needs the exact UTC timestamp to store, schedule, or transmit. For unknown times, call validate_local_datetime first and ask the user to disambiguate before resolving.",
     "input_schema": {
       "type": "object",
       "properties": {
-        "local_datetime": { "type": "string", "description": "ISO 8601 local datetime" },
-        "time_zone": { "type": "string", "description": "IANA timezone identifier" },
-        "ambiguous_policy": { "type": "string", "enum": ["earlier", "later", "reject"], "description": "How to resolve ambiguous times (DST overlap)" },
-        "invalid_policy": { "type": "string", "enum": ["next_valid_time", "previous_valid_time", "reject"], "description": "How to resolve invalid times (DST gap)" }
+        "local_datetime": {
+          "type": "string",
+          "description": "Local datetime in ISO 8601 format without a timezone offset. Example: 2026-11-01T01:30:00."
+        },
+        "time_zone": {
+          "type": "string",
+          "description": "IANA timezone identifier such as America/New_York."
+        },
+        "ambiguous_policy": {
+          "type": "string",
+          "enum": ["earlier", "later", "reject"],
+          "description": "How to resolve a DST overlap (time occurs twice). 'earlier' picks the first occurrence (before fall-back), 'later' picks the second, 'reject' returns an error so the agent can ask the user."
+        },
+        "invalid_policy": {
+          "type": "string",
+          "enum": ["next_valid_time", "previous_valid_time", "reject"],
+          "description": "How to resolve a DST gap (time does not exist). 'next_valid_time' jumps to the first valid time after the gap, 'previous_valid_time' jumps back, 'reject' returns an error."
+        }
       },
       "required": ["local_datetime", "time_zone"]
     }
   },
   {
     "name": "convert_datetime",
-    "description": "Convert a UTC instant to a local datetime in the target timezone",
+    "description": "Convert a UTC instant to a local datetime in a target IANA timezone. Use this when displaying a stored UTC timestamp to a user in their region or formatting a time for a destination timezone. This is unambiguous — a UTC instant maps to exactly one local time. Do NOT use this to interpret user-entered local time; use validate_local_datetime or resolve_datetime for that.",
     "input_schema": {
       "type": "object",
       "properties": {
-        "instant_utc": { "type": "string", "description": "ISO 8601 UTC datetime (e.g. 2026-06-15T15:00:00Z)" },
-        "target_time_zone": { "type": "string", "description": "IANA timezone identifier" }
+        "instant_utc": {
+          "type": "string",
+          "description": "ISO 8601 UTC datetime ending with Z. Example: 2026-06-15T15:00:00Z."
+        },
+        "target_time_zone": {
+          "type": "string",
+          "description": "IANA timezone identifier to convert into, such as Europe/London."
+        }
       },
       "required": ["instant_utc", "target_time_zone"]
     }
   },
   {
     "name": "batch_datetime_operations",
-    "description": "Process up to 100 validate, resolve, and convert operations in a single request. Use this when you need to check multiple datetimes at once (e.g. validating all events in a calendar import).",
+    "description": "Run up to 100 validate, resolve, and convert operations in a single request. Use this BEFORE an agent saves a generated schedule, imports a calendar, books a series of appointments, or processes a list of user-supplied datetimes — calling the API once per item is wasteful and slow. Each item gets its own success/error result; partial failures don't fail the whole batch.",
     "input_schema": {
       "type": "object",
       "properties": {
         "items": {
           "type": "array",
-          "description": "Array of operations (max 100). Each item must include 'operation' (validate/resolve/convert) and the relevant fields.",
+          "description": "Array of operations (1–100). Each item must include 'operation' (validate/resolve/convert) and the relevant fields for that operation.",
           "items": {
             "type": "object",
             "properties": {

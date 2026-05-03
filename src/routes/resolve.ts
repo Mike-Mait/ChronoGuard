@@ -8,7 +8,9 @@ export async function resolveRoute(app: FastifyInstance) {
     "/v1/datetime/resolve",
     {
       schema: {
-        description: "Resolve an ambiguous or invalid local datetime to a UTC instant",
+        summary: "Resolve a local datetime to UTC",
+        description:
+          "Resolve a local datetime in an IANA timezone to a definitive UTC instant using an explicit policy for ambiguous (DST overlap) and invalid (DST gap) inputs. Use this once an application or AI agent has decided how edge cases should be handled — for unknown user input, call /v1/datetime/validate first and ask the user to disambiguate.",
         tags: ["datetime"],
         body: {
           type: "object",
