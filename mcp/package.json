@@ -1,5 +1,5 @@
 {
-  "name": "@chronoshield/mcp",
+  "name": "chronoshield-mcp",
   "version": "1.0.0",
   "description": "Model Context Protocol server for ChronoShield API — preflight datetime validation for AI agents. Detects DST gaps, DST overlaps, and invalid IANA timezones before agents schedule, book, bill, remind, or convert.",
   "type": "module",

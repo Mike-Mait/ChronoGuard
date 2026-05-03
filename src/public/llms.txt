@@ -92,7 +92,7 @@ Tool names: validate_local_datetime, resolve_datetime, convert_datetime, batch_d
 
 A Model Context Protocol server is available so Claude Desktop, Cursor, Windsurf, and other MCP clients can call ChronoShield as native tools.
 
-Install: npm install -g @chronoshield/mcp
+Install: npm install -g chronoshield-mcp
 Repo: https://github.com/Mike-Mait/ChronoShield-API/tree/master/mcp
 
 ## Documentation

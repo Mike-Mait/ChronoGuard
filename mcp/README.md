@@ -21,13 +21,13 @@ If a user-entered local time falls in a DST gap (doesn't exist), occurs twice (D
 ## Install
 
 ```bash
-npm install -g @chronoshield/mcp
+npm install -g chronoshield-mcp
 ```
 
 Or run on demand without a global install:
 
 ```bash
-npx -y @chronoshield/mcp
+npx -y chronoshield-mcp
 ```
 
 You'll need a free ChronoShield API key — get one at [chronoshieldapi.com](https://chronoshieldapi.com).
@@ -48,7 +48,7 @@ Add:
   "mcpServers": {
     "chronoshield": {
       "command": "npx",
-      "args": ["-y", "@chronoshield/mcp"],
+      "args": ["-y", "chronoshield-mcp"],
       "env": {
         "CHRONOSHIELD_API_KEY": "YOUR_API_KEY"
       }

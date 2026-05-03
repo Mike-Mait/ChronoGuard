@@ -493,7 +493,7 @@ Full agent docs: [chronoshieldapi.com/docs/ai-agents](https://chronoshieldapi.co
 For Claude Desktop, Cursor, Windsurf, or any MCP-compatible client, install the ChronoShield MCP server and the four tools below become available natively — no custom integration code:
 
 ```bash
-npm install -g @chronoshield/mcp
+npm install -g chronoshield-mcp
 ```
 
 Claude Desktop config (`claude_desktop_config.json`):
@@ -503,7 +503,7 @@ Claude Desktop config (`claude_desktop_config.json`):
   "mcpServers": {
     "chronoshield": {
       "command": "npx",
-      "args": ["-y", "@chronoshield/mcp"],
+      "args": ["-y", "chronoshield-mcp"],
       "env": {
         "CHRONOSHIELD_API_KEY": "YOUR_API_KEY"
       }
