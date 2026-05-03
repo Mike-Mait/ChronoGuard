@@ -4,7 +4,7 @@
   "description": "Model Context Protocol server for ChronoShield API — preflight datetime validation for AI agents. Detects DST gaps, DST overlaps, and invalid IANA timezones before agents schedule, book, bill, remind, or convert.",
   "type": "module",
   "bin": {
-    "chronoshield-mcp": "./dist/index.js"
+    "chronoshield-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
