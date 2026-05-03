@@ -5,6 +5,11 @@ COPY package*.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src/ ./src/
+# agent-tools.json is the canonical AI-agent tool schema source. The build
+# step copies it into dist/ so the runtime image (which only ships dist/)
+# can serve it at /agent-tools.json. Must be copied into the builder before
+# `npm run build` or the build fails with ENOENT.
+COPY agent-tools.json ./
 RUN npx prisma generate --schema=src/db/prisma/schema.prisma
 RUN npm run build
 
