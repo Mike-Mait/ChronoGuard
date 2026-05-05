@@ -241,6 +241,84 @@ export async function sendWelcomeProEmail(toEmail: string): Promise<boolean> {
   }
 }
 
+// ─── Welcome email: Enterprise provisioning ───
+// Sent from the admin set-tier endpoint after a successful enterprise
+// provisioning. Fire-and-forget, same discipline as the Pro flow — the
+// tier change in DB has already happened, so a transient SMTP failure
+// must not roll it back. The playbook's manual Template D in
+// legal/enterprise-playbook.md is the canonical wording for personal
+// touch (integration-call offer, Slack Connect for big accounts);
+// THIS automated mail is the immediate "your tier is live" confirmation
+// so the customer isn't waiting for you to type a manual reply.
+//
+// Number formatting uses en-US thousands separators because every
+// enterprise prospect so far has been a US/English-speaking technical
+// buyer; revisit if/when we sell into non-English markets.
+export async function sendWelcomeEnterpriseEmail(
+  toEmail: string,
+  requestsLimit: number,
+  options: {
+    companyName?: string;
+    nextResetAt?: Date;
+  } = {}
+): Promise<boolean> {
+  const mailer = getTransporter();
+  if (!mailer) return false;
+
+  const { companyName, nextResetAt } = options;
+  const greetingTarget = companyName ? ` at ${companyName}` : "";
+  const formattedLimit = requestsLimit.toLocaleString("en-US");
+  const resetLine = nextResetAt
+    ? `  • Your monthly quota resets on ${nextResetAt.toLocaleDateString(
+        "en-US",
+        { year: "numeric", month: "long", day: "numeric" }
+      )}.`
+    : `  • Your monthly quota resets at the start of each calendar month (UTC).`;
+
+  try {
+    await mailer.sendMail({
+      from: `"ChronoShield Team" <${config.smtpFromSupport}>`,
+      to: toEmail,
+      replyTo: "support@chronoshieldapi.com",
+      subject: "Welcome to ChronoShield Enterprise",
+      text: [
+        `Hi,`,
+        ``,
+        `Your ChronoShield Enterprise tier${greetingTarget} is now active. Thank you — partnerships at this scale are how we keep investing in the API and the underlying tzdb pipeline, and we don't take it for granted.`,
+        ``,
+        `Plan details:`,
+        `  • Monthly request limit: ${formattedLimit}`,
+        `  • Same API key — your existing x-api-key header keeps working with the new limits, no code changes needed`,
+        `  • Direct support: reply to this email for a 1-business-day response, with 4-hour response on critical incidents during business hours`,
+        resetLine,
+        ``,
+        `Resources:`,
+        `  • API reference:           https://chronoshieldapi.com/docs`,
+        `  • AI agent integration:    https://chronoshieldapi.com/docs/ai-agents`,
+        `  • Interactive playground:  https://chronoshieldapi.com/docs/playground`,
+        `  • Status page:             https://chronoshieldapi.com/status`,
+        `  • Changelog:               https://github.com/Mike-Mait/ChronoShield-API/blob/master/CHANGELOG.md`,
+        ``,
+        `Want a 30-min integration call this week? Reply with a time that works and I'll send a calendar invite. Useful for walking through edge cases specific to your stack, or just to put a face to the email address.`,
+        ``,
+        `If anything comes up — integration questions, schema feedback, feature requests — just reply here.`,
+        ``,
+        `Thanks for choosing ChronoShield.`,
+        ``,
+        `— The ChronoShield Team`,
+        `https://chronoshieldapi.com`,
+      ].join("\n"),
+    });
+    return true;
+  } catch (err: any) {
+    console.error(
+      "[sendWelcomeEnterpriseEmail] SMTP send failed:",
+      err?.response || err?.message || err
+    );
+    return false;
+  }
+}
+
 // ─── Cancellation-scheduled email: fires when user clicks Cancel ───
 // Sent from the Stripe webhook on customer.subscription.updated when
 // cancel_at_period_end transitions false → true (i.e. the user just

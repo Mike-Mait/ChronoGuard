@@ -13,10 +13,17 @@ import { captureException } from "../config/sentry";
 // if a future bug accidentally serializes a KeyEntry over the wire — e.g.
 // a careless reply.send(entry) — the blast radius is metadata, not a live
 // credential. See createOrGetKey for the matching storage discipline.
+// Tier names supported by the API. Self-serve flow only mints "free" and
+// "pro" (via Stripe Checkout); "enterprise" is set out-of-band by the admin
+// set-tier endpoint or direct SQL after a deal closes. The DB column is a
+// free string so adding a new tier value here doesn't require a migration —
+// just keep this union in sync with the playbook's tier list.
+export type Tier = "free" | "pro" | "enterprise";
+
 interface KeyEntry {
   id?: string;
   email: string;
-  tier: "free" | "pro";
+  tier: Tier;
   requestsUsed: number;
   requestsLimit: number;
   stripeCustomerId?: string;
@@ -95,7 +102,7 @@ export async function lookupKeyAsync(apiKey: string): Promise<KeyEntry | null> {
       return {
         id: record.id,
         email: record.email,
-        tier: record.tier as "free" | "pro",
+        tier: record.tier as Tier,
         requestsUsed,
         requestsLimit: record.requestsLimit,
         stripeCustomerId: record.stripeCustomerId ?? undefined,
@@ -215,6 +222,137 @@ export async function upgradeToProByEmail(email: string, stripeCustomerId: strin
       cached.stripeCustomerId = stripeCustomerId;
     }
   }
+}
+
+// ─── Generic tier setter (admin-driven, e.g. enterprise provisioning) ───
+//
+// Mirrors upgradeToProByEmail but accepts an arbitrary tier + custom limit,
+// for cases the self-serve Stripe flow doesn't cover — primarily enterprise
+// deals where the limit is negotiated, not from a Stripe price ID.
+//
+// DB errors propagate (no silent catch). The webhook discipline applies
+// here too: a memory-only tier change disappears on Railway restart and
+// silently downgrades a paying customer.
+//
+// `resetUsage` defaults to true because the typical caller is provisioning
+// a new enterprise customer who should start the month at zero. For
+// mid-month limit adjustments on an existing enterprise account, pass
+// false to preserve the running counter.
+//
+// Returns the previous tier + limit so the caller can audit-log the
+// transition and detect no-op calls (same tier + same limit = no change).
+export async function setTierByEmail(
+  email: string,
+  tier: Tier,
+  requestsLimit: number,
+  options: {
+    resetUsage?: boolean;
+    stripeCustomerId?: string;
+  } = {}
+): Promise<{
+  ok: boolean;
+  previousTier?: Tier;
+  previousLimit?: number;
+}> {
+  const { resetUsage = true, stripeCustomerId } = options;
+  const prisma = getPrisma();
+
+  if (prisma) {
+    const existing = await prisma.apiKey.findUnique({ where: { email } });
+    if (!existing) return { ok: false };
+
+    const updateData: {
+      tier: Tier;
+      requestsLimit: number;
+      requestsUsed?: number;
+      resetAt?: Date;
+      stripeCustomerId?: string;
+    } = {
+      tier,
+      requestsLimit,
+    };
+
+    if (resetUsage) {
+      updateData.requestsUsed = 0;
+      updateData.resetAt = getNextResetDate();
+    }
+
+    if (stripeCustomerId) {
+      updateData.stripeCustomerId = stripeCustomerId;
+    }
+
+    await prisma.apiKey.update({
+      where: { email },
+      data: updateData,
+    });
+
+    // Refresh memory + cache so the auth hot-path picks up the new tier on
+    // the next request without waiting for the in-memory entry to expire.
+    const memEntry = memoryKeyStore.get(email);
+    if (memEntry) {
+      memEntry.tier = tier;
+      memEntry.requestsLimit = requestsLimit;
+      if (resetUsage) {
+        memEntry.requestsUsed = 0;
+        memEntry.resetAt = getNextResetDate();
+      }
+      if (stripeCustomerId) {
+        memEntry.stripeCustomerId = stripeCustomerId;
+      }
+      const rawKey = findApiKeyForEmail(email);
+      const cached = rawKey ? keyCache.get(rawKey) : null;
+      if (cached) {
+        cached.tier = tier;
+        cached.requestsLimit = requestsLimit;
+        if (resetUsage) {
+          cached.requestsUsed = 0;
+          cached.resetAt = memEntry.resetAt;
+        }
+        if (stripeCustomerId) {
+          cached.stripeCustomerId = stripeCustomerId;
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      previousTier: existing.tier as Tier,
+      previousLimit: existing.requestsLimit,
+    };
+  }
+
+  // DB not configured (local dev only): mutate memory.
+  const memEntry = memoryKeyStore.get(email);
+  if (!memEntry) return { ok: false };
+
+  const previousTier = memEntry.tier;
+  const previousLimit = memEntry.requestsLimit;
+
+  memEntry.tier = tier;
+  memEntry.requestsLimit = requestsLimit;
+  if (resetUsage) {
+    memEntry.requestsUsed = 0;
+    memEntry.resetAt = getNextResetDate();
+  }
+  if (stripeCustomerId) {
+    memEntry.stripeCustomerId = stripeCustomerId;
+  }
+
+  const rawKey = findApiKeyForEmail(email);
+  const cached = rawKey ? keyCache.get(rawKey) : null;
+  if (cached) {
+    cached.tier = tier;
+    cached.requestsLimit = requestsLimit;
+    if (resetUsage) {
+      cached.requestsUsed = 0;
+      cached.resetAt = memEntry.resetAt;
+    }
+    if (stripeCustomerId) {
+      cached.stripeCustomerId = stripeCustomerId;
+    }
+  }
+
+  return { ok: true, previousTier, previousLimit };
 }
 
 // ─── Downgrade to Free by Stripe Customer ID ───
@@ -337,7 +475,7 @@ async function createOrGetKey(
         apiKey: null,
         isExisting: true,
         entry: null,
-        dbTier: existing.tier as "free" | "pro",
+        dbTier: existing.tier as Tier,
         dbRequestsLimit: existing.requestsLimit,
         dbStripeCustomerId: existing.stripeCustomerId,
       };
@@ -468,7 +606,7 @@ export async function rotateKeyByEmail(email: string): Promise<string | null> {
     const entry: KeyEntry = {
       id: existing.id,
       email,
-      tier: existing.tier as "free" | "pro",
+      tier: existing.tier as Tier,
       requestsUsed: existing.requestsUsed,
       requestsLimit: existing.requestsLimit,
       stripeCustomerId: existing.stripeCustomerId ?? undefined,

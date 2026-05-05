@@ -80,14 +80,33 @@ app.addHook("onRequest", async (request, reply) => {
   // Store for rate-limit headers
   (request as any).keyEntry = keyEntry;
 
-  // Enforce rate limits
+  // Enforce rate limits. Message is tier-aware so the upgrade path we
+  // surface matches where the customer actually is — telling an existing
+  // enterprise customer to "upgrade to Pro" is worse than no message at
+  // all because it reads like the API thinks they aren't paying.
   if (keyEntry.requestsUsed >= keyEntry.requestsLimit) {
+    let upgradeMessage: string;
+    switch (keyEntry.tier) {
+      case "free":
+        upgradeMessage =
+          "Monthly free-tier quota exceeded. Upgrade to Pro for 100,000 requests/month at https://chronoshieldapi.com.";
+        break;
+      case "pro":
+        upgradeMessage =
+          "Monthly Pro-tier quota exceeded. For higher volumes, email sales@chronoshieldapi.com to discuss an Enterprise plan.";
+        break;
+      case "enterprise":
+        upgradeMessage =
+          "Monthly Enterprise quota reached. Email sales@chronoshieldapi.com to raise your limit — we'll prorate the difference at renewal.";
+        break;
+      default:
+        upgradeMessage =
+          "Monthly quota exceeded. Email support@chronoshieldapi.com.";
+    }
     return reply.code(429).send({
       error: "Rate limit exceeded",
       code: "RATE_LIMIT_EXCEEDED",
-      message: keyEntry.tier === "free"
-        ? "Upgrade to Pro for 100,000 requests/month."
-        : "Contact us for enterprise limits.",
+      message: upgradeMessage,
       requests_used: keyEntry.requestsUsed,
       requests_limit: keyEntry.requestsLimit,
       reset_at: keyEntry.resetAt?.toISOString() || null,
