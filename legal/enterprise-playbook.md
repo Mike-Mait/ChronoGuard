@@ -215,19 +215,25 @@ Is the deal >$10K/mo AND they want to pay by wire?
 
 ### Stage 6 — Provisioning
 
-See §5 SQL cookbook for the exact queries.
+Two paths: the **script** (§5.0, preferred) and **raw SQL** (§5.1, fallback). The script wraps `POST /api/admin/keys/set-tier`, validates input, fires the welcome email automatically on first promotion, and prints a before/after diff. The SQL is for cases where the API is unavailable, or when you want to inspect/debug a row directly.
 
 **Pre-flight checklist**:
 - [ ] Payment confirmed received (Stripe shows paid, or wire landed in bank)
 - [ ] Order Form, MSA, DPA all countersigned and filed
-- [ ] Customer has created a free-tier account at https://chronoshieldapi.com and shared their email with you (the email is the join key for the SQL UPDATE)
+- [ ] Customer has created a free-tier account at https://chronoshieldapi.com and shared their email with you (the email is the join key for the UPDATE)
 - [ ] Agreed monthly limit confirmed in writing (not verbally)
 
-**Steps**:
+**Steps (preferred — script path)**:
+1. Run `node scripts/enterprise-provision.mjs --email <customer> --limit <n> --company "<co>"` from your dev machine. See §5.0 for the full flag list.
+2. Script confirms tier was set, fires the welcome email automatically, and prints the before/after diff.
+3. (Optional but recommended for >$10K/yr) Send a personalized follow-up using §6 Template D — the auto welcome is brand-of-the-house; the manual Template D is the human handshake.
+4. Update tracker (§11) — record: customer, signed date, renewal date, monthly price, tier.
+
+**Steps (fallback — direct SQL)**:
 1. Run the UPDATE SQL from §5.1 in Railway's Postgres console.
 2. Verify with the SELECT from §5.2 — confirm `tier='enterprise'`, `requests_limit`, `active=true`.
-3. Send welcome email (§6, Template D).
-4. Update tracker (§11) — record: customer, signed date, renewal date, monthly price, tier.
+3. Send welcome email manually (§6, Template D) — no auto email when bypassing the script.
+4. Update tracker (§11).
 
 **If something goes wrong**: rollback query in §5.6. Never leave a half-provisioned row — it creates confusion about whether they paid or not.
 
@@ -329,13 +335,74 @@ See anchors in Stage 3. Update this section after every 3 deals with what actual
 
 ---
 
-## 5. SQL cookbook
+## 5. Provisioning toolbox
 
-> **All queries run against the Railway Postgres `api_keys` table.** The table name is lowercase + underscores, **not** `ApiKey` (Prisma model name).
->
-> **Always run the SELECT version first** (dry run) before the UPDATE/DELETE version.
+Two layers. Use the **script** for routine provisioning and limit changes; use the **SQL cookbook** as fallback (API down, debug, audit, deletion).
 
-### 5.1 Provision an enterprise customer
+### 5.0 Provisioning helper script (preferred path)
+
+`scripts/enterprise-provision.mjs` wraps `POST /api/admin/keys/set-tier`. It validates inputs locally before any HTTP call, fires the welcome email automatically on first promotion to enterprise, and prints a before/after diff so you can paste it into the deal tracker. Authenticates with the master `API_KEY`.
+
+**Setup (one-time)**:
+
+```bash
+export CHRONOSHIELD_API_KEY=<master admin key>   # the API_KEY env var on Railway
+# Optional override (defaults to https://chronoshieldapi.com):
+# export CHRONOSHIELD_BASE_URL=https://chronoshieldapi.com
+```
+
+**Standard provision (new enterprise deal)**:
+
+```bash
+node scripts/enterprise-provision.mjs \
+  --email customer@acme.com \
+  --limit 5000000 \
+  --company "Acme Inc"
+```
+
+What this does: tier → enterprise, limit → 5M, `requests_used` reset to 0, `reset_at` bumped to next month, welcome email sent, audit log written. Prints before/after.
+
+**Mid-term limit bump (existing enterprise customer)**:
+
+```bash
+node scripts/enterprise-provision.mjs \
+  --email customer@acme.com \
+  --limit 10000000 \
+  --no-reset-usage \
+  --no-email
+```
+
+`--no-reset-usage` preserves the running counter so the customer doesn't get a free month. `--no-email` skips a duplicate welcome (the auto-email already fires only on the FIRST promotion to enterprise, but `--no-email` is belt-and-braces).
+
+**Sanity check before sending (highly recommended for first few deals)**:
+
+```bash
+node scripts/enterprise-provision.mjs \
+  --email customer@acme.com --limit 5000000 --dry-run
+```
+
+Prints the would-be request body without making the call.
+
+**All flags**:
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--email <e>` | — (required) | Customer's account email |
+| `--limit <n>` | — (required) | Monthly request limit (positive integer ≤ 1B) |
+| `--tier <t>` | `enterprise` | One of `free`, `pro`, `enterprise` |
+| `--company "<n>"` | — | Used in welcome email greeting |
+| `--no-email` | — | Skip welcome email |
+| `--no-reset-usage` | — | Preserve current month's counter |
+| `--stripe-customer <id>` | — | Attach Stripe customer ID |
+| `--base-url <url>` | `chronoshieldapi.com` | Override target API |
+| `--api-key <k>` | — | Master admin key (else `$CHRONOSHIELD_API_KEY`) |
+| `--dry-run` | — | Print body without sending |
+
+**Exit codes**: `0` success, `1` bad args, `2` customer not found (their free account doesn't exist yet — send them the landing page, then re-run), `3` HTTP error.
+
+**When to fall back to SQL (§5.1+)**: API is down (Railway deploy in flight, DB connectivity issue), the customer's row needs manual inspection, or you're running a deletion per DPA §5.7.
+
+### 5.1 Provision an enterprise customer (raw SQL fallback)
 
 ```sql
 -- Upgrade an existing account to Enterprise tier
@@ -810,13 +877,16 @@ Resist the temptation to build tooling before you've felt the pain. Here's what'
 - [x] Contact form → sales email (already in place)
 - [x] Stripe Invoicing account (just exists in Stripe, free)
 - [x] DPA template + MSA template (one-time attorney cost)
-- [x] `tier = 'enterprise'` supported in code (works today, no migration)
+- [x] `tier = 'enterprise'` supported in code (`Tier` union in `src/routes/keys.ts`, runtime casts updated)
+- [x] Tier-aware 429 message (free → Pro, Pro → Enterprise sales, Enterprise → raise-limit contact)
+- [x] Admin endpoint `POST /api/admin/keys/set-tier` with input validation, `request_logs_count` on `GET /api/admin/keys`
+- [x] Provisioning helper script (`scripts/enterprise-provision.mjs`) with dry-run mode and semantic exit codes
+- [x] Auto welcome email on first enterprise promotion (`sendWelcomeEnterpriseEmail`)
 - [x] Google Sheet tracker
 
 ### Build after 3–5 enterprise deals
 
 - [ ] `enterprise_contracts` DB table (id, api_key_id, company_name, msa_signed_at, renewal_at, monthly_price_usd, annual_commit, notes)
-- [ ] Admin endpoint `POST /api/admin/keys/set-tier` (takes email + tier + limit, does the UPDATE)
 - [ ] Monthly usage report email automation
 - [ ] Renewal reminder email automation (90/60/30 day)
 
