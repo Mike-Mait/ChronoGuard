@@ -73,6 +73,7 @@
       <a href="#scenarios" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Real-World Scenarios</a>
       <a href="#quick-start" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Quick Start</a>
       <a href="#authentication" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Authentication</a>
+      <a href="#decision-tree" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Which endpoint?</a>
 
       <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Endpoints</p>
       <a href="#validate" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">POST /validate</a>
@@ -86,7 +87,9 @@
       <a href="#errors" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Error Handling</a>
       <a href="#rate-limits" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Rate Limits</a>
       <a href="#sdks" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Official SDKs</a>
+      <a href="#patterns" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Production patterns</a>
       <a href="/docs/ai-agents" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">AI Agent Integration <span class="ml-1 text-[9px] text-brand-400">&rarr;</span></a>
+      <a href="/correctness" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Correctness &amp; tests <span class="ml-1 text-[9px] text-brand-400">&rarr;</span></a>
     </nav>
 
     <!-- ─── MAIN CONTENT ─── -->
@@ -285,6 +288,71 @@
           <pre class="text-sm text-slate-300"><code>HTTP 401
 { "error": "Unauthorized: invalid or missing API key" }</code></pre>
         </div>
+      </section>
+
+      <!-- ─── ENDPOINT DECISION TREE ─── -->
+      <section id="decision-tree" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Which endpoint should I use?</h2>
+        <p class="text-sm text-slate-400 mb-6 max-w-2xl">Most integrations only need one or two of the four endpoints. This decision tree will get you to the right one in under 30 seconds.</p>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/40 p-5 sm:p-7">
+          <div class="space-y-1 font-mono text-sm">
+            <!-- Root question -->
+            <div class="flex items-baseline gap-2">
+              <span class="text-white font-semibold">Q.</span>
+              <span class="text-slate-300">Do you already have a UTC instant?</span>
+            </div>
+
+            <!-- Yes branch -->
+            <div class="ml-5 mt-2 pl-4 border-l-2 border-slate-800">
+              <div class="flex items-baseline gap-2 mb-2">
+                <span class="text-emerald-400 font-bold">YES &rarr;</span>
+                <a href="#convert" class="text-brand-300 hover:text-brand-200 underline underline-offset-2 decoration-brand-500/40">use <code class="bg-emerald-500/10 px-1.5 py-0.5 rounded text-xs">/v1/datetime/convert</code></a>
+              </div>
+              <p class="text-xs text-slate-500 ml-6 mb-1">"What's this in the user's local timezone?"</p>
+            </div>
+
+            <!-- No branch -->
+            <div class="ml-5 mt-3 pl-4 border-l-2 border-slate-800">
+              <div class="flex items-baseline gap-2">
+                <span class="text-amber-400 font-bold">NO &rarr;</span>
+                <span class="text-slate-300">You have a local datetime + IANA timezone. What do you need to do with it?</span>
+              </div>
+
+              <!-- Sub-branches -->
+              <div class="ml-6 mt-3 space-y-3">
+                <div class="pl-4 border-l-2 border-slate-800/60">
+                  <div class="flex items-baseline gap-2 mb-1">
+                    <span class="text-slate-500">&#9501;</span>
+                    <span class="text-slate-400">Check if it's safe to act on?</span>
+                  </div>
+                  <a href="#validate" class="ml-5 inline-block text-brand-300 hover:text-brand-200 underline underline-offset-2 decoration-brand-500/40">use <code class="bg-red-500/10 px-1.5 py-0.5 rounded text-xs">/v1/datetime/validate</code></a>
+                  <p class="text-xs text-slate-500 ml-5 mt-1">Returns <code class="text-xs">DST_GAP</code>, <code class="text-xs">DST_OVERLAP</code>, or <code class="text-xs">INVALID_TIMEZONE</code>. Lets your app decide.</p>
+                </div>
+
+                <div class="pl-4 border-l-2 border-slate-800/60">
+                  <div class="flex items-baseline gap-2 mb-1">
+                    <span class="text-slate-500">&#9501;</span>
+                    <span class="text-slate-400">Need a single deterministic UTC instant?</span>
+                  </div>
+                  <a href="#resolve" class="ml-5 inline-block text-brand-300 hover:text-brand-200 underline underline-offset-2 decoration-brand-500/40">use <code class="bg-amber-500/10 px-1.5 py-0.5 rounded text-xs">/v1/datetime/resolve</code></a>
+                  <p class="text-xs text-slate-500 ml-5 mt-1">You pre-pick the policy: <code class="text-xs">earlier</code>, <code class="text-xs">later</code>, <code class="text-xs">reject</code>, <code class="text-xs">next_valid_time</code>, etc.</p>
+                </div>
+
+                <div class="pl-4 border-l-2 border-slate-800/60">
+                  <div class="flex items-baseline gap-2 mb-1">
+                    <span class="text-slate-500">&#9492;</span>
+                    <span class="text-slate-400">Need to process many at once?</span>
+                  </div>
+                  <a href="#batch" class="ml-5 inline-block text-brand-300 hover:text-brand-200 underline underline-offset-2 decoration-brand-500/40">use <code class="bg-brand-500/10 px-1.5 py-0.5 rounded text-xs">/v1/datetime/batch</code></a>
+                  <p class="text-xs text-slate-500 ml-5 mt-1">Up to 100 mixed validate/resolve/convert operations. Partial failures are isolated per item.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-500 mt-4 max-w-2xl">Building an AI agent integration? Start at <a href="/docs/ai-agents" class="text-brand-400 hover:underline">/docs/ai-agents</a> instead &mdash; the agent docs cover MCP setup, tool schemas, and recommended agent behavior per reason code.</p>
       </section>
 
       <!-- ─── ENDPOINT: VALIDATE ─── -->
@@ -654,6 +722,155 @@ client = ChronoShieldClient(
 
 result = client.validate("2026-03-08T02:30:00", "America/New_York")
 print(result.status)  # "invalid"</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── PRODUCTION PATTERNS ─── -->
+      <section id="patterns" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Production patterns</h2>
+        <p class="text-sm text-slate-400 mb-6 max-w-3xl">Knowing the endpoints isn't the same as knowing where to put the call in your app. Below are seven patterns that map ChronoShield onto common production architectures &mdash; pick the one that matches your code.</p>
+
+        <!-- Pattern 1 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 mt-0.5">Pattern 1</span>
+            <h3 class="text-sm font-bold text-white">Validate before storing user-selected local time</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> A user picks a date+time in your UI (booking form, scheduler, "remind me at...") and you're about to write it to the database.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">Where in your app:</strong> Inside the request handler that receives the form submission, BEFORE the INSERT.</p>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>// Pseudocode — Express/Fastify/etc. handler
+app.post("/bookings", async (req, res) =&gt; {
+  const { local_datetime, time_zone } = req.body;
+
+  const check = await chronoshield.validate({ local_datetime, time_zone });
+  if (check.status !== "valid") {
+    return res.status(400).json({
+      error: "Invalid time",
+      reason: check.reason_code,
+      suggested_fixes: check.suggested_fixes,
+    });
+  }
+
+  // Safe to store. Resolve to UTC and persist.
+  const utc = await chronoshield.resolve({ local_datetime, time_zone });
+  await db.bookings.create({ instant_utc: utc.instant_utc, local_datetime, time_zone });
+});</code></pre>
+        </div>
+
+        <!-- Pattern 2 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 mt-0.5">Pattern 2</span>
+            <h3 class="text-sm font-bold text-white">Resolve before scheduling a job</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> User says "run this every day at 9am Eastern." Your job runner needs a UTC timestamp to fire on.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">Where in your app:</strong> When computing the next fire time for a recurring job. Recompute after each run &mdash; don't add 24h to the previous fire (DST drifts that).</p>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>// After each run, compute the next fire time fresh
+async function nextFire(localTime, tz) {
+  const tomorrow = addDays(localToday(tz), 1);
+  const localDt = `${tomorrow}T${localTime}`;
+
+  const resolved = await chronoshield.resolve({
+    local_datetime: localDt,
+    time_zone: tz,
+    resolution_policy: { invalid: "next_valid_time", ambiguous: "earlier" },
+  });
+  return resolved.instant_utc;
+}</code></pre>
+        </div>
+
+        <!-- Pattern 3 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 mt-0.5">Pattern 3</span>
+            <h3 class="text-sm font-bold text-white">Store UTC instant + original local time + timezone</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> Always &mdash; this is the schema you should use for any time-bound record.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">Why all three:</strong> UTC is for sorting/triggering; local + tz is for re-rendering and re-resolving if tzdb rules change after storage.</p>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>-- PostgreSQL example
+CREATE TABLE bookings (
+  id UUID PRIMARY KEY,
+  instant_utc      TIMESTAMPTZ NOT NULL,   -- for indexing, sorting, scheduling
+  local_datetime   TEXT NOT NULL,          -- original user input
+  time_zone        TEXT NOT NULL,          -- IANA zone they picked in
+  ...
+);
+CREATE INDEX ON bookings (instant_utc);</code></pre>
+          <p class="text-xs text-slate-500 mt-3">Storing only UTC means you lose the user's intent if a tzdb rule changes (e.g. a country abolishes DST). Keeping all three lets you re-resolve cleanly.</p>
+        </div>
+
+        <!-- Pattern 4 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/10 text-red-400 mt-0.5">Pattern 4</span>
+            <h3 class="text-sm font-bold text-white">Ask the user when validate returns DST_GAP</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> The local time the user picked doesn't exist (spring-forward).</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">UI pattern:</strong> Render <code class="text-xs">suggested_fixes[0].local_datetime</code> as a "did you mean?" prompt. Don't silently shift &mdash; the user picked that time for a reason; let them confirm or pick differently.</p>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>if (result.reason_code === "DST_GAP") {
+  showModal({
+    title: "That time doesn't exist on this day",
+    body: `Clocks jump from 02:00 to 03:00 for daylight saving. Want to use ${result.suggested_fixes[0].local_datetime} instead?`,
+    actions: [
+      { label: "Use 3:00 AM", onClick: () =&gt; submit(result.suggested_fixes[0].local_datetime) },
+      { label: "Pick another time", onClick: () =&gt; reopenPicker() },
+    ],
+  });
+}</code></pre>
+        </div>
+
+        <!-- Pattern 5 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 mt-0.5">Pattern 5</span>
+            <h3 class="text-sm font-bold text-white">Apply explicit policy on DST_OVERLAP</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> The local time happens twice (fall-back). Two valid UTC instants exist; you have to pick one.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">Recommended defaults by use case:</strong></p>
+          <ul class="text-xs text-slate-400 ml-4 space-y-1 mb-3 list-disc list-inside">
+            <li><strong class="text-slate-300">Calendar / scheduling:</strong> <code class="text-xs">earlier</code> &mdash; the user means "the first time 1:30 AM happens that day"</li>
+            <li><strong class="text-slate-300">Billing / cron:</strong> <code class="text-xs">earlier</code> + idempotent job design &mdash; cheaper than charging twice</li>
+            <li><strong class="text-slate-300">High-stakes / financial:</strong> <code class="text-xs">reject</code> &mdash; force the caller to ask the user</li>
+          </ul>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>const resolved = await chronoshield.resolve({
+  local_datetime, time_zone,
+  resolution_policy: {
+    ambiguous: "earlier",        // or "later" / "reject"
+    invalid: "next_valid_time",  // or "previous_valid_time" / "reject"
+  },
+});</code></pre>
+        </div>
+
+        <!-- Pattern 6 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-500/10 text-brand-400 mt-0.5">Pattern 6</span>
+            <h3 class="text-sm font-bold text-white">Batch-validate generated schedules</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> Importing a calendar (.ics), processing a CSV of recurring events, or an LLM has generated a list of times to schedule.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">Why batch:</strong> One round-trip vs. N. The batch endpoint isolates per-item failures so a single invalid time doesn't fail the whole import.</p>
+          <pre class="text-xs p-3 rounded bg-slate-950 text-slate-300 overflow-x-auto"><code>const result = await chronoshield.batch({
+  items: scheduleItems.map(item =&gt; ({
+    operation: "validate",
+    local_datetime: item.start,
+    time_zone: item.tz,
+  })),
+});
+
+const invalid = result.results.filter(r =&gt; !r.success || r.data.status !== "valid");
+if (invalid.length) {
+  presentImportReview(invalid);  // let user fix bad rows before commit
+}</code></pre>
+        </div>
+
+        <!-- Pattern 7 -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+          <div class="flex items-start gap-3 mb-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-500/10 text-brand-300 mt-0.5">Pattern 7</span>
+            <h3 class="text-sm font-bold text-white">Use ChronoShield as an agent preflight tool</h3>
+          </div>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">When:</strong> Building an LLM agent that books, schedules, bills, or reminds based on natural-language time references.</p>
+          <p class="text-xs text-slate-400 mb-3"><strong class="text-slate-300">How:</strong> Install the <code class="text-xs">chronoshield-mcp</code> server (one config block) or wire <code class="text-xs">validate_local_datetime</code> as an OpenAI/Claude tool. The agent calls validate FIRST, asks the user to disambiguate on <code class="text-xs">DST_GAP</code> / <code class="text-xs">DST_OVERLAP</code>, then proceeds. Full guide: <a href="/docs/ai-agents" class="text-brand-400 hover:underline">/docs/ai-agents</a>.</p>
         </div>
       </section>
 
