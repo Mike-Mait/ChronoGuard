@@ -34,3 +34,10 @@ mcp/package-lock.json
 legal/signed/
 legal/**/*-signed.pdf
 legal/**/*-executed.pdf
+
+# ─── Local-only working files ───
+# Drafts, recording scripts, internal notes, anything that should be
+# accessible on the local machine but never pushed to GitHub. Treat
+# private/ as a personal scratch directory — don't put anything here
+# that other contributors would need.
+private/
