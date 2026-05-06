@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoShield API &mdash; Billing &amp; Workflow Automation</title>
+  <meta name="description" content="DST-safe billing cycles and cron jobs. Resolve user-supplied 'every day at 2am Eastern' rules to deterministic UTC instants, prevent jobs from running twice on fall-back, and stop charging customers an hour wrong twice a year." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    :target { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Shield</span> <span class="text-brand-300 text-xs font-semibold">API</span></span>
+        <span class="text-xs text-slate-600 ml-1">Billing &amp; Workflows</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs" class="text-slate-500 hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/docs/playground" class="text-slate-500 hover:text-slate-300 transition-colors">Playground</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">The problem</p>
+      <a href="#bug" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">The bug</a>
+      <a href="#consequence" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Business impact</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Cron specifics</p>
+      <a href="#cron-gap" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Spring-forward: skipped</a>
+      <a href="#cron-overlap" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Fall-back: doubled</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Integration</p>
+      <a href="#pattern" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Recommended pattern</a>
+      <a href="#which-endpoint" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Which endpoint when</a>
+      <a href="#billing-example" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Billing example</a>
+      <a href="#cta" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Get started</a>
+    </nav>
+
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- HERO -->
+      <section id="bug" class="mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-semibold mb-4">
+          <span class="text-base leading-none">&#9201;</span>
+          For billing systems &amp; workflow automation
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Stop running cron jobs twice (or skipping them entirely)</h1>
+        <p class="mt-4 text-base text-slate-300 leading-relaxed max-w-3xl">
+          Two predictable failures hit any system that schedules work in local civil time: jobs scheduled inside the spring-forward gap don't fire, and jobs scheduled inside the fall-back overlap fire twice. ChronoShield resolves user-supplied schedules to deterministic UTC instants so neither happens silently.
+        </p>
+
+        <div class="mt-8 grid sm:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-red-400 mb-2">Spring-forward = skipped</div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-2">A daily 2:30 AM billing job. On March 8 in <code class="text-red-300 bg-red-500/10 px-1 rounded">America/New_York</code>, 2:30 AM doesn't exist. Most schedulers either skip the run entirely <strong class="text-white">or fire it at 3:30 AM along with the next one</strong>.</p>
+            <p class="text-xs text-red-400/80">Either way: revenue or workflow logs out of sync once a year. Hard to debug because the job's <em>own logs</em> show no error.</p>
+          </div>
+          <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Fall-back = doubled</div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-2">A monthly subscription charge at 1:30 AM on November 1. <strong class="text-white">1:30 AM happens twice that day.</strong> Schedulers that interpret cron in local civil time fire twice.</p>
+            <p class="text-xs text-amber-400/80">Customers get charged twice. Refund tickets, chargebacks, the support team's least favorite Sunday of the year.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUSINESS IMPACT -->
+      <section id="consequence" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Why this matters for billing specifically</h2>
+        <ul class="text-sm text-slate-400 space-y-2 max-w-3xl list-disc list-inside ml-2">
+          <li><strong class="text-slate-300">Direct financial impact:</strong> double-charges create chargebacks, refunds, and Stripe disputes. Each chargeback costs $15&ndash;25 in fees plus the disputed amount, even if you win.</li>
+          <li><strong class="text-slate-300">Customer trust:</strong> "you charged me twice" is the single most damaging support ticket a billing system can generate. Refunding doesn't restore the trust.</li>
+          <li><strong class="text-slate-300">Regulatory risk:</strong> in regulated billing scenarios (utilities, telecom, certain SaaS jurisdictions), incorrect charge timestamps create audit liabilities even when refunded promptly.</li>
+          <li><strong class="text-slate-300">Silent month-boundary bugs:</strong> a usage-based billing system that aggregates "events from Jan 31 14:00 UTC to Feb 1 00:00 UTC" gets the cutoff wrong if a customer is in a different timezone &mdash; events get counted in the wrong month, sometimes double-counted.</li>
+        </ul>
+      </section>
+
+      <!-- CRON GAP -->
+      <section id="cron-gap" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">The cron-gap problem</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Most cron systems express schedules in local civil time: <code class="text-xs bg-slate-800 px-1 rounded">"30 2 * * *"</code> means "every day at 2:30 AM in this server's timezone." On the day of the spring-forward transition, that local time doesn't exist.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl"><strong class="text-slate-300">What different schedulers do:</strong></p>
+        <ul class="text-sm text-slate-400 space-y-1 list-disc list-inside ml-2 max-w-3xl">
+          <li><strong class="text-white">Linux cron:</strong> skips the job entirely.</li>
+          <li><strong class="text-white">Quartz.NET:</strong> fires at 3:00 AM (the next valid time) by default &mdash; sometimes user expects this, sometimes not.</li>
+          <li><strong class="text-white">node-cron:</strong> behavior depends on configuration. Has had multiple historical DST bugs.</li>
+          <li><strong class="text-white">systemd timers:</strong> skips, with a documented warning in the man page few people read.</li>
+          <li><strong class="text-white">Application-level schedulers (Sidekiq-cron, Celery beat):</strong> varies; check yours.</li>
+        </ul>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl">The fix isn't to argue about which behavior is correct &mdash; it's to <strong class="text-white">remove the ambiguity at the input boundary</strong>. Resolve the local-time rule to a UTC instant once, ahead of time, with an explicit policy. If the policy is <code class="text-xs bg-slate-800 px-1 rounded">next_valid_time</code>, the job fires at 3:00 AM and you know it. If the policy is <code class="text-xs bg-slate-800 px-1 rounded">reject</code>, you surface a configuration error to the customer instead of silently dropping their billing run.</p>
+      </section>
+
+      <!-- CRON OVERLAP -->
+      <section id="cron-overlap" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">The cron-overlap problem</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Fall-back is worse because the failure mode is "fires twice" instead of "fires not at all." A billing job at 1:30 AM on the November transition day will run once at the pre-transition offset (UTC&minus;4 in NY) and again at the post-transition offset (UTC&minus;5). Same wall clock, different UTC instants, two firings.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl"><strong class="text-slate-300">The fix has two layers:</strong></p>
+        <ol class="text-sm text-slate-400 space-y-2 list-decimal list-inside ml-2 max-w-3xl">
+          <li><strong class="text-white">Resolve user-supplied schedule rules to UTC at definition time</strong>, with an explicit ambiguity policy (typically <code class="text-xs bg-slate-800 px-1 rounded">earlier</code>). Then the scheduler fires once at a known UTC instant.</li>
+          <li><strong class="text-white">Make the job itself idempotent</strong> via a per-period idempotency key (e.g. <code class="text-xs bg-slate-800 px-1 rounded">billing_run_2026_11_01</code>). Even if a malformed scheduler somewhere fires twice, the second invocation is a no-op.</li>
+        </ol>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl">ChronoShield handles layer 1. Idempotency keys are your responsibility, but ChronoShield surfacing <code class="text-xs bg-slate-800 px-1 rounded">DST_OVERLAP</code> reminds you the day exists, so you build the idempotency key before production hits the case.</p>
+      </section>
+
+      <!-- RECOMMENDED PATTERN -->
+      <section id="pattern" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Recommended implementation pattern</h2>
+        <p class="text-sm text-slate-400 mb-4 max-w-3xl">For any system that accepts a user-supplied schedule rule (cron expression, "every day at X", "first of every month at Y"), the canonical pattern is to resolve the next fire time fresh from the rule each iteration.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// Don't precompute 90 days of UTC instants. Recompute each fire fresh.
+
+async function nextFireUtc(schedule) {
+  // schedule = { local_time: "02:30", time_zone: "America/New_York", rule: "daily" }
+
+  const localTomorrow = nextOccurrence(schedule);  // your scheduling lib
+  const localDt = `${localTomorrow}T${schedule.local_time}:00`;
+
+  const resolved = await chronoshield.resolve({
+    local_datetime: localDt,
+    time_zone: schedule.time_zone,
+    resolution_policy: {
+      // Spring-forward gap: jump forward to the next valid time
+      invalid: "next_valid_time",
+      // Fall-back overlap: take the first occurrence (before transition)
+      ambiguous: "earlier",
+    },
+  });
+
+  return resolved.instant_utc;
+}
+
+// At each job run:
+const next = await nextFireUtc(job.schedule);
+await scheduler.enqueueAt(next, job.id);</code></pre>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl"><strong class="text-slate-300">Why recompute each iteration:</strong> if you precompute a list of UTC instants for the next 90 days, the first DST transition in that window will drift them by an hour. By the time the bug surfaces, you can't tell whether it was the schedule or the executor that misfired.</p>
+      </section>
+
+      <!-- WHICH ENDPOINT -->
+      <section id="which-endpoint" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">When to use validate vs. resolve vs. convert</h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30">
+          <table class="w-full text-sm">
+            <thead><tr class="border-b border-slate-800">
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Scenario</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Endpoint</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Why</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">User defines a recurring schedule in local time</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-emerald-500/10 px-1 rounded">/validate</code> (sanity check) + <code class="text-xs bg-amber-500/10 px-1 rounded">/resolve</code> (next fire)</td>
+                <td class="px-5 py-3 text-slate-500">Validate the rule input; resolve each occurrence to UTC at fire time.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Computing the start/end of a billing period in user's local civil time</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-amber-500/10 px-1 rounded">/resolve</code></td>
+                <td class="px-5 py-3 text-slate-500">e.g. "the first of next month at midnight America/Chicago." Resolve once, store the UTC instant.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Showing a customer their next billing date in their timezone</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-emerald-500/10 px-1 rounded">/convert</code></td>
+                <td class="px-5 py-3 text-slate-500">UTC &rarr; local. Render the stored UTC instant in their zone.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Bulk-validate a list of scheduled rules at deploy/migration time</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-brand-500/10 px-1 rounded">/batch</code></td>
+                <td class="px-5 py-3 text-slate-500">Catch DST issues across hundreds of customer schedules in one round trip.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- BILLING EXAMPLE -->
+      <section id="billing-example" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Worked example: monthly subscription billing</h2>
+        <p class="text-sm text-slate-400 mb-4 max-w-3xl">A SaaS bills customers on the 1st of each month at 00:00 in their local timezone. Here's the full flow with DST safety.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>async function computeNextBillingUtc(customer) {
+  // Customer: { id, time_zone: "America/Chicago", billing_anchor: 1 }
+
+  const nextLocalDate = firstOfNextMonth(now(), customer.time_zone);
+  const localDt = `${nextLocalDate}T00:00:00`;
+
+  const resolved = await chronoshield.resolve({
+    local_datetime: localDt,
+    time_zone: customer.time_zone,
+    resolution_policy: {
+      ambiguous: "earlier",       // very rare at midnight, but explicit
+      invalid: "next_valid_time", // never triggered at midnight, but explicit
+    },
+  });
+
+  return resolved.instant_utc;
+}
+
+// At each successful billing run:
+const nextRun = await computeNextBillingUtc(customer);
+await db.subscriptions.update({
+  where: { id: customer.subscription_id },
+  data: { next_billing_utc: nextRun },
+});
+
+// Idempotency layer: every charge attempt uses a key derived from the UTC instant
+const idempotencyKey = `bill_${customer.id}_${nextRun}`;
+await stripe.charges.create({...}, { idempotencyKey });</code></pre>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl"><strong class="text-slate-300">What this protects against:</strong> a customer in a region that suddenly changes its DST policy (Iran, Turkey, Brazil, Egypt have all done this on short notice in the last decade). ChronoShield's monthly tzdb refresh picks up the change; your billing recomputes the next instant correctly without code changes.</p>
+      </section>
+
+      <!-- CTA -->
+      <section id="cta" class="mb-16">
+        <div class="rounded-xl border border-brand-500/30 bg-brand-500/5 p-6">
+          <h2 class="text-xl font-bold text-white mb-2">Try it on your trickiest schedule</h2>
+          <p class="text-sm text-slate-400 mb-5 max-w-2xl">Get a free API key (no card), POST one of your existing schedule rules to <code class="text-xs bg-slate-800 px-1 rounded">/v1/datetime/resolve</code>, and see what the next 12 months of UTC fire times look like with explicit policy applied.</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <a href="/" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors">
+              Get a free API key
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+            <a href="/docs/playground" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-semibold transition-colors">
+              Open the playground
+            </a>
+            <a href="/docs#patterns" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-semibold transition-colors">
+              See production patterns
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="border-t border-slate-800/40 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+      <div>&copy; 2026 ChronoShield API. All rights reserved.</div>
+      <div class="flex items-center gap-5">
+        <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/use-cases/scheduling" class="hover:text-slate-300 transition-colors">Scheduling</a>
+        <a href="/correctness" class="hover:text-slate-300 transition-colors">Correctness</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach((link) => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>

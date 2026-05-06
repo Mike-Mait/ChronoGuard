@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoShield API &mdash; How It's Built</title>
+  <meta name="description" content="What's under the hood: bundled IANA tzdata decoupled from system ICU, monthly tzdb refresh, parity-tested against Luxon, pure-computation request path, open-source codebase. The architecture choices behind ChronoShield's correctness guarantees." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    :target { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Shield</span> <span class="text-brand-300 text-xs font-semibold">API</span></span>
+        <span class="text-xs text-slate-600 ml-1">How it's built</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs" class="text-slate-500 hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/correctness" class="text-slate-500 hover:text-slate-300 transition-colors">Correctness</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Architecture</p>
+      <a href="#overview" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Overview</a>
+      <a href="#stack" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Tech stack</a>
+      <a href="#bundled" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Bundled tzdata</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Correctness</p>
+      <a href="#parity" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Parity sweep</a>
+      <a href="#cadence" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">tzdb cadence</a>
+      <a href="#projection" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">BC DST projection</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Operations</p>
+      <a href="#perf" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Performance</a>
+      <a href="#deploy" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Deployment</a>
+      <a href="#self-host" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Self-hosting</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Open source</p>
+      <a href="#oss" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Repository</a>
+    </nav>
+
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- HERO -->
+      <section id="overview" class="mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-500/10 border border-slate-500/30 text-slate-300 text-xs font-semibold mb-4">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          Trust through transparency
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">How ChronoShield is built</h1>
+        <p class="mt-4 text-base text-slate-300 leading-relaxed max-w-3xl">
+          ChronoShield is a piece of infrastructure you're being asked to call from your scheduling, billing, or agent code. That's a trust ask. This page explains exactly how it works under the hood &mdash; the architecture choices, the correctness guarantees, the deployment story &mdash; so you can evaluate it the way you'd evaluate any production dependency.
+        </p>
+      </section>
+
+      <!-- TECH STACK -->
+      <section id="stack" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-4">Tech stack</h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30">
+          <table class="w-full text-sm">
+            <thead><tr class="border-b border-slate-800">
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Component</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Choice</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Why</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Runtime</td><td class="px-5 py-3 text-slate-400">Node.js &ge; 20</td><td class="px-5 py-3 text-slate-500">Long-term support track; native fetch; mature ecosystem.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">HTTP framework</td><td class="px-5 py-3 text-slate-400">Fastify</td><td class="px-5 py-3 text-slate-500">Lower overhead than Express, schema-driven validation, JSON-RPC-friendly.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Language</td><td class="px-5 py-3 text-slate-400">TypeScript</td><td class="px-5 py-3 text-slate-500">Type safety at the API boundary catches a class of bugs the test suite would never see.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Time math</td><td class="px-5 py-3 text-slate-400">Luxon + bundled IANA tzdata</td><td class="px-5 py-3 text-slate-500">Luxon for the immutable-DateTime API; custom <code class="text-xs">BundledIANAZone</code> for the tzdata so deploys don't depend on system ICU.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Validation</td><td class="px-5 py-3 text-slate-400">Zod</td><td class="px-5 py-3 text-slate-500">Runtime-validates request bodies before they hit any business logic. The first line of defence.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Database</td><td class="px-5 py-3 text-slate-400">PostgreSQL via Prisma</td><td class="px-5 py-3 text-slate-500">Stores hashed API keys, monthly usage counters, and request logs. Not in the request path.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Payments</td><td class="px-5 py-3 text-slate-400">Stripe Checkout + webhooks</td><td class="px-5 py-3 text-slate-500">Self-serve Pro tier; enterprise via Stripe Invoicing.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Errors</td><td class="px-5 py-3 text-slate-400">Sentry</td><td class="px-5 py-3 text-slate-500">Captures exceptions and DB blips loudly &mdash; silence is what hid a missing-table bug for weeks early in the project.</td></tr>
+              <tr class="border-t border-slate-800/60"><td class="px-5 py-3 text-slate-300">Hosting</td><td class="px-5 py-3 text-slate-400">Railway (managed)</td><td class="px-5 py-3 text-slate-500">Multi-region single-tenant for now; self-hostable Docker image for customers who need it.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- BUNDLED TZDATA -->
+      <section id="bundled" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Bundled IANA tzdata, decoupled from system ICU</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Most Node servers' "time math" depends on the host OS's ICU library, which is updated whenever the OS is updated &mdash; sometimes never. That means two identical-looking deploys can give different DST answers depending on which Linux base image they happened to land on.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">ChronoShield ships its own <strong class="text-white">bundled IANA-zone implementation</strong> based on moment-timezone's tzdata, wrapped in a custom <code class="text-xs bg-slate-800 px-1 rounded">BundledIANAZone</code> class that conforms to Luxon's <code class="text-xs bg-slate-800 px-1 rounded">Zone</code> interface. The whole zone database travels with the npm package; ICU is never consulted.</p>
+        <p class="text-sm text-slate-400 max-w-3xl"><strong class="text-slate-300">Why it matters:</strong> a customer running ChronoShield self-hosted on Alpine Linux gets the same answers as our Railway-hosted deploy on Debian. No surprise on a base-image bump. No "works on staging, broken in prod."</p>
+      </section>
+
+      <!-- PARITY SWEEP -->
+      <section id="parity" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Parity sweep against Luxon's IANAZone</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">The bundled implementation is correct only if it produces the <em>same</em> answers as a known-good reference. Every CI run sweeps offsets for every zone moment-timezone knows about (~600+) at six representative timestamps and asserts byte-equality with Luxon's <code class="text-xs bg-slate-800 px-1 rounded">IANAZone</code>.</p>
+        <ul class="text-sm text-slate-400 space-y-2 list-disc list-inside ml-2 max-w-3xl">
+          <li>Timestamps include 2026 NY spring-forward and fall-back windows, mid-summer 1985, end-of-2000, and 2035 (parity envelope).</li>
+          <li>~3,500+ comparisons per CI run.</li>
+          <li>Any divergence fails the build and prints the exact zone, instant, and the two offsets that disagreed.</li>
+          <li>A separate fuzz suite seeds random zone &times; timestamp pairs around DST transitions specifically &mdash; the moments where bundled and reference are most likely to drift on a tzdb update.</li>
+        </ul>
+        <p class="text-sm text-slate-400 mt-4 max-w-3xl">Browse the test suite at <a href="https://github.com/Mike-Mait/ChronoShield-API/tree/master/tests" class="text-brand-400 hover:underline">github.com/Mike-Mait/ChronoShield-API/tree/master/tests</a>; the parity-relevant files are <code class="text-xs bg-slate-800 px-1 rounded">bundled-zone-parity.test.ts</code> and <code class="text-xs bg-slate-800 px-1 rounded">bundled-zone-fuzz.test.ts</code>. Or see the curated edge-case list at <a href="/correctness" class="text-brand-400 hover:underline">/correctness</a>.</p>
+      </section>
+
+      <!-- TZDB CADENCE -->
+      <section id="cadence" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Monthly tzdb refresh cadence</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">The IANA tzdb releases roughly monthly, sometimes more often when a country changes its DST policy on short notice (Iran, Turkey, Egypt, Brazil have all done this in recent years). ChronoShield tracks that release schedule via a scheduled GitHub Action that checks for new tzdb versions, opens a PR with the updated bundle, and runs the full parity + fuzz suite before merge.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">The currently-served version is always exposed at <a href="/v1/datetime/version" class="text-brand-400 hover:underline">/v1/datetime/version</a>:</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden max-w-2xl">
+          <pre class="text-sm p-4 text-slate-300"><code>GET /v1/datetime/version
+&rarr; {
+    "tzdb_version": "2026b",
+    "tzdb_source": "moment-timezone",
+    "tzdb_source_version": "0.6.2",
+    "api_version": "1.3.0"
+  }</code></pre>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl">Compare this to <code class="text-xs bg-slate-800 px-1 rounded">pytz</code>, which has historically lagged tzdb releases by months. Or to a Lambda function whose tzdata is pinned to whatever ICU shipped with the runtime when AWS last published the layer. ChronoShield's cadence is a deliberate choice to remove that drift from your concern set.</p>
+      </section>
+
+      <!-- BC DST PROJECTION -->
+      <section id="projection" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">BC DST projection &mdash; far past, far future</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">tzdb has a "rule envelope" &mdash; a range of years for which DST transitions are explicitly listed. Outside the envelope, libraries either error or extrapolate by repeating the most recent rule. The behavior is undefined enough that two libraries can disagree on whether <em>"1900-06-15 noon in America/New_York"</em> was in DST.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">ChronoShield uses a documented projection strategy (the same one Luxon uses by default) and tests against it explicitly. If you call validate or convert with a year outside the parity envelope, you get the same answer ChronoShield's bundled implementation and Luxon agree on &mdash; no silent reinterpretation.</p>
+      </section>
+
+      <!-- PERFORMANCE -->
+      <section id="perf" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Performance: pure computation in the request path</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Validate, resolve, and convert are <strong class="text-white">pure functions</strong>: no database lookups, no filesystem reads, no external API calls in the hot path. The bundled tzdata is loaded once at server start and served from memory.</p>
+        <ul class="text-sm text-slate-400 space-y-2 list-disc list-inside ml-2 max-w-3xl">
+          <li>p95 latency: &lt;50ms (server-side compute, excluding network).</li>
+          <li>API key + usage counter writes happen on the response path, not the request path &mdash; so a slow DB doesn't block the answer.</li>
+          <li>Rate limit check is an in-memory comparison using a key entry that's hydrated from Postgres on first lookup and cached.</li>
+        </ul>
+      </section>
+
+      <!-- DEPLOYMENT -->
+      <section id="deploy" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Deployment topology</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Production runs on Railway with PostgreSQL for key/usage persistence. Live status: <a href="https://chronoshield-api.betteruptime.com" class="text-brand-400 hover:underline">chronoshield-api.betteruptime.com</a>.</p>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl"><strong class="text-slate-300">Boot-time schema verification:</strong> the server runs <code class="text-xs bg-slate-800 px-1 rounded">prisma migrate deploy</code> + a probe query against the <code class="text-xs bg-slate-800 px-1 rounded">api_keys</code> table on startup. If the DB schema is missing, the process crashes with a loud error rather than coming up in a half-broken state and silently issuing memory-only keys that vanish on restart.</p>
+        <p class="text-sm text-slate-400 max-w-3xl"><strong class="text-slate-300">Health check:</strong> Docker/Railway use <code class="text-xs bg-slate-800 px-1 rounded">/health</code>; richer operational state at <code class="text-xs bg-slate-800 px-1 rounded">/status</code>.</p>
+      </section>
+
+      <!-- SELF-HOSTING -->
+      <section id="self-host" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Self-hosting</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">For air-gapped, regulatory, or data-residency reasons, the entire stack runs from a Docker Compose file in the public repo. Postgres + Redis + the API itself, with healthchecks wired up.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden max-w-2xl">
+          <pre class="text-sm p-4 text-slate-300"><code>git clone https://github.com/Mike-Mait/ChronoShield-API
+cd ChronoShield-API
+cp .env.example .env  # set master API_KEY etc.
+docker compose up</code></pre>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 max-w-3xl">Same code that runs at chronoshieldapi.com. No proprietary fork. Self-hosted deployments still receive the monthly tzdb refresh via the open-source release cadence on GitHub.</p>
+      </section>
+
+      <!-- OPEN SOURCE -->
+      <section id="oss" class="mb-12">
+        <div class="rounded-xl border border-brand-500/30 bg-brand-500/5 p-6">
+          <h2 class="text-xl font-bold text-white mb-2">The whole codebase is public</h2>
+          <p class="text-sm text-slate-400 mb-4 max-w-2xl">Read the validation logic, the parity tests, the bundled-zone implementation, the Stripe integration, the MCP server &mdash; it's all in the GitHub repo. Open source under ISC.</p>
+          <a href="https://github.com/Mike-Mait/ChronoShield-API" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors">
+            github.com/Mike-Mait/ChronoShield-API
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="border-t border-slate-800/40 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+      <div>&copy; 2026 ChronoShield API. All rights reserved.</div>
+      <div class="flex items-center gap-5">
+        <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/correctness" class="hover:text-slate-300 transition-colors">Correctness</a>
+        <a href="/terms" class="hover:text-slate-300 transition-colors">Terms</a>
+        <a href="/privacy" class="hover:text-slate-300 transition-colors">Privacy</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach((link) => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoShield API &mdash; Scheduling &amp; Calendar Apps</title>
+  <meta name="description" content="DST-safe scheduling for calendar apps, booking platforms, and meeting tools. Validate user-entered times before storage, resolve to UTC explicitly, and prevent the silent 'fired an hour late' bug class that hits every March and November." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    :target { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Shield</span> <span class="text-brand-300 text-xs font-semibold">API</span></span>
+        <span class="text-xs text-slate-600 ml-1">Scheduling</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs" class="text-slate-500 hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/docs/playground" class="text-slate-500 hover:text-slate-300 transition-colors">Playground</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">The problem</p>
+      <a href="#bug" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">The bug</a>
+      <a href="#consequence" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Business impact</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Integration</p>
+      <a href="#three-lines" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Three lines</a>
+      <a href="#request" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Request &amp; response</a>
+      <a href="#pattern" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Recommended pattern</a>
+      <a href="#which-endpoint" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Which endpoint when</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Deeper</p>
+      <a href="#cross-tz" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Cross-timezone meetings</a>
+      <a href="#recurring" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Recurring events</a>
+      <a href="#cta" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Get started</a>
+    </nav>
+
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- HERO -->
+      <section id="bug" class="mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-semibold mb-4">
+          <span class="text-base leading-none">&#128197;</span>
+          For scheduling &amp; calendar apps
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Stop scheduling meetings at times that don't exist</h1>
+        <p class="mt-4 text-base text-slate-300 leading-relaxed max-w-3xl">
+          Every calendar app, booking platform, and scheduling tool ships the same silent bug class: a user picks a local time, your code stores it, and twice a year the event fires at the wrong hour because of daylight saving. ChronoShield catches the bug at the boundary &mdash; before the bad row hits your database.
+        </p>
+
+        <div class="mt-8 grid sm:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-red-400 mb-2">Spring-forward gap</div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-2">User picks <code class="text-red-300 bg-red-500/10 px-1 rounded">2:30 AM March 8</code> in New York. <strong class="text-white">That time doesn't exist on March 8.</strong> Most calendar apps silently shift to 3:30 AM and store it.</p>
+            <p class="text-xs text-red-400/80">Standup happens an hour late. Two engineers no-show.</p>
+          </div>
+          <div class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
+            <div class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Fall-back overlap</div>
+            <p class="text-sm text-slate-300 leading-relaxed mb-2">User picks <code class="text-amber-300 bg-amber-500/10 px-1 rounded">1:30 AM November 1</code>. <strong class="text-white">That time happens twice that day.</strong> Your system picks one offset, the calendar UI picks the other.</p>
+            <p class="text-xs text-amber-400/80">User and host show up to different meetings, an hour apart.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- BUSINESS IMPACT -->
+      <section id="consequence" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Why this matters for the business, not just the code</h2>
+        <ul class="text-sm text-slate-400 space-y-2 max-w-3xl list-disc list-inside ml-2">
+          <li><strong class="text-slate-300">Customer trust:</strong> the moment a user shows up to a meeting an hour late because your scheduler glitched, they're done. They blame the product, not DST.</li>
+          <li><strong class="text-slate-300">Support volume:</strong> the bug fires twice a year, predictably. That's a recurring spike of "my meeting was at the wrong time" tickets you can't reproduce or explain.</li>
+          <li><strong class="text-slate-300">Hard to debug:</strong> by the time the user complains, the bad event is in your database and the calendar event has already fired. There's no error log because the library didn't think it failed.</li>
+          <li><strong class="text-slate-300">Multi-tenant blast radius:</strong> one user with the bug doesn't notice. A thousand users with the bug means you trend on Twitter on March 8.</li>
+        </ul>
+      </section>
+
+      <!-- THREE LINES -->
+      <section id="three-lines" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">The integration in three lines</h2>
+        <p class="text-sm text-slate-400 mb-4 max-w-3xl">Add a single API call inside your booking-form handler, before the INSERT. That's the whole change.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// In your booking submit handler:
+const check = await chronoshield.validate({ local_datetime, time_zone });
+if (check.status !== "valid") return showFixModal(check);
+
+// Otherwise: safe. Resolve to UTC and store.
+const utc = await chronoshield.resolve({ local_datetime, time_zone });
+await db.events.create({ instant_utc: utc.instant_utc, local_datetime, time_zone });</code></pre>
+        </div>
+      </section>
+
+      <!-- REQUEST & RESPONSE -->
+      <section id="request" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Request &amp; response</h2>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-emerald-400">Request</div>
+            <pre class="text-xs p-4 text-slate-300"><code>POST /v1/datetime/validate
+Content-Type: application/json
+x-api-key: YOUR_API_KEY
+
+{
+  "local_datetime": "2026-03-08T02:30:00",
+  "time_zone": "America/New_York"
+}</code></pre>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-red-400">Response &mdash; the gap caught</div>
+            <pre class="text-xs p-4 text-slate-300"><code>{
+  "status": "invalid",
+  "reason_code": "DST_GAP",
+  "message": "This time does not exist due to DST transition.",
+  "suggested_fixes": [
+    { "strategy": "next_valid_time", "local_datetime": "2026-03-08T03:00:00" },
+    { "strategy": "previous_valid_time", "local_datetime": "2026-03-08T01:59:59" }
+  ]
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECOMMENDED PATTERN -->
+      <section id="pattern" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">Recommended implementation pattern</h2>
+        <p class="text-sm text-slate-400 mb-4 max-w-3xl">For a scheduling app, the canonical pattern stores three columns per event: <code class="text-xs bg-slate-800 px-1 rounded">instant_utc</code> (for sorting and triggering), <code class="text-xs bg-slate-800 px-1 rounded">local_datetime</code> (the user's original input), and <code class="text-xs bg-slate-800 px-1 rounded">time_zone</code> (their IANA zone).</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// 1. User submits booking form with local_datetime + time_zone
+
+// 2. Validate at the input boundary
+const check = await chronoshield.validate({ local_datetime, time_zone });
+
+if (check.reason_code === "DST_GAP") {
+  // Don't shift silently. Show suggested_fixes[0] as a "did you mean?" prompt.
+  return res.status(400).json({ error: "gap", suggested: check.suggested_fixes });
+}
+if (check.reason_code === "DST_OVERLAP") {
+  // Two valid instants. Ask the user OR apply your default policy.
+  return res.status(400).json({ error: "overlap", possible_instants: check.possible_instants });
+}
+if (check.status === "invalid") {
+  return res.status(400).json({ error: check.reason_code, message: check.message });
+}
+
+// 3. Validated. Resolve to UTC for storage.
+const utc = await chronoshield.resolve({
+  local_datetime, time_zone,
+  resolution_policy: { ambiguous: "earlier", invalid: "next_valid_time" },
+});
+
+// 4. Store all three. UTC for sorting/triggering, local + tz for re-rendering.
+await db.events.create({
+  instant_utc: utc.instant_utc,
+  local_datetime,
+  time_zone,
+});</code></pre>
+        </div>
+      </section>
+
+      <!-- WHICH ENDPOINT -->
+      <section id="which-endpoint" class="mb-16">
+        <h2 class="text-xl font-bold text-white mb-3">When to use validate vs. resolve vs. convert</h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30">
+          <table class="w-full text-sm">
+            <thead><tr class="border-b border-slate-800">
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Scenario</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Endpoint</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Why</th>
+            </tr></thead>
+            <tbody>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">User submits a booking form with local time + tz</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-emerald-500/10 px-1 rounded">/validate</code> first, then <code class="text-xs bg-amber-500/10 px-1 rounded">/resolve</code></td>
+                <td class="px-5 py-3 text-slate-500">Validate to catch bad input; resolve to get the UTC instant for storage.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Display a stored event in a viewer's timezone</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-emerald-500/10 px-1 rounded">/convert</code></td>
+                <td class="px-5 py-3 text-slate-500">UTC &rarr; local. Unambiguous &mdash; one UTC instant maps to one local time per zone.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Importing 50 events from an .ics file</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-brand-500/10 px-1 rounded">/batch</code></td>
+                <td class="px-5 py-3 text-slate-500">One round trip. Per-item failures don't fail the whole import.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">Recurring meeting "every Wed 9am Eastern"</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-amber-500/10 px-1 rounded">/resolve</code> per occurrence</td>
+                <td class="px-5 py-3 text-slate-500">Recompute each occurrence's UTC fresh from the local-time rule. Don't add 24h to the previous one &mdash; DST will drift it.</td>
+              </tr>
+              <tr class="border-t border-slate-800/60">
+                <td class="px-5 py-3 text-slate-300">User edits the time of an existing event</td>
+                <td class="px-5 py-3 text-emerald-300"><code class="text-xs bg-emerald-500/10 px-1 rounded">/validate</code> + <code class="text-xs bg-amber-500/10 px-1 rounded">/resolve</code></td>
+                <td class="px-5 py-3 text-slate-500">Same as initial creation. Update all three columns: instant_utc, local_datetime, time_zone.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CROSS-TZ -->
+      <section id="cross-tz" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Cross-timezone meetings</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">A host in Berlin invites a guest in Chicago for a 14:00 Berlin time meeting on the day Berlin transitions out of DST but Chicago hasn't yet. <strong class="text-white">The two transitions don't happen on the same day.</strong> If your scheduler doesn't pick a single source-of-truth zone for the event, you can end up with the host and guest seeing times that differ by an hour from each other for the entire week.</p>
+        <p class="text-sm text-slate-400 max-w-3xl"><strong class="text-slate-300">The pattern:</strong> store the event in the host's zone (or whichever zone the user picked it in), resolve once to a UTC instant, and convert to each viewer's zone on display via <code class="text-xs bg-slate-800 px-1 rounded">/convert</code>. ChronoShield's bundled tzdata gives every viewer the same answer.</p>
+      </section>
+
+      <!-- RECURRING -->
+      <section id="recurring" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Recurring events the right way</h2>
+        <p class="text-sm text-slate-400 mb-3 max-w-3xl">Recurring meetings store a <em class="text-slate-300">rule</em>, not a list of UTC instants. The rule is "every weekday at 9am in <code class="text-xs bg-slate-800 px-1 rounded">America/New_York</code>." The next fire time is recomputed from the rule each iteration, freshly resolved through <code class="text-xs bg-slate-800 px-1 rounded">/resolve</code>.</p>
+        <p class="text-sm text-slate-400 max-w-3xl"><strong class="text-red-300">Anti-pattern:</strong> precomputing 90 days of UTC instants and storing them as a list. The first DST transition in that 90-day window will drift them by an hour and you'll spend a Friday afternoon re-explaining DST to a customer's CTO.</p>
+      </section>
+
+      <!-- CTA -->
+      <section id="cta" class="mb-16">
+        <div class="rounded-xl border border-brand-500/30 bg-brand-500/5 p-6">
+          <h2 class="text-xl font-bold text-white mb-2">Try it in two minutes</h2>
+          <p class="text-sm text-slate-400 mb-5 max-w-2xl">Get a free API key (no card), POST a booking-form datetime to <code class="text-xs bg-slate-800 px-1 rounded">/v1/datetime/validate</code>, and watch the bug surface as a structured error code your app can handle deterministically.</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <a href="/" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors">
+              Get a free API key
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+            <a href="/docs/playground" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-semibold transition-colors">
+              Open the playground
+            </a>
+            <a href="/docs#patterns" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-semibold transition-colors">
+              See production patterns
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="border-t border-slate-800/40 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+      <div>&copy; 2026 ChronoShield API. All rights reserved.</div>
+      <div class="flex items-center gap-5">
+        <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/use-cases/billing-and-workflows" class="hover:text-slate-300 transition-colors">Billing &amp; Workflows</a>
+        <a href="/correctness" class="hover:text-slate-300 transition-colors">Correctness</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach((link) => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>

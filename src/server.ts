@@ -36,7 +36,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription", "/llms.txt", "/agent-tools.json", "/correctness"];
+const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription", "/llms.txt", "/agent-tools.json", "/correctness", "/how-it-works", "/use-cases"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -318,7 +318,7 @@ async function start() {
 
   // Pre-load static HTML files into memory
   const htmlCache: Record<string, string> = {};
-  for (const page of ["index", "docs", "ai-agents", "correctness", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
+  for (const page of ["index", "docs", "ai-agents", "correctness", "how-it-works", "use-case-scheduling", "use-case-billing-workflows", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
     htmlCache[page] = fs.readFileSync(path.join(__dirname, "public", `${page}.html`), "utf-8");
   }
 
@@ -392,6 +392,24 @@ async function start() {
   // developer documentation — and shorter URLs get shared more.
   app.get("/correctness", { schema: { hide: true } }, async (_request, reply) => {
     return reply.type("text/html").send(htmlCache.correctness);
+  });
+
+  // "How it's built" — architecture transparency page. For evaluators
+  // who want to read how the bundled tzdata, parity sweep, and deploy
+  // topology actually work before they integrate.
+  app.get("/how-it-works", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["how-it-works"]);
+  });
+
+  // Use-case landing pages. Top-level /use-cases/* path so each can rank
+  // independently in search (the buyer searches "scheduling app DST",
+  // not "ChronoShield"). Source files use a flat use-case-* naming
+  // convention so the htmlCache loop stays a flat for-loop.
+  app.get("/use-cases/scheduling", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["use-case-scheduling"]);
+  });
+  app.get("/use-cases/billing-and-workflows", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache["use-case-billing-workflows"]);
   });
 
   // Terms of Service
