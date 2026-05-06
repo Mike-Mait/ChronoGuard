@@ -193,6 +193,68 @@
     </div>
   </section>
 
+  <!-- ─── WHY NOT JUST USE A LIBRARY ─── -->
+  <section class="max-w-5xl mx-auto px-6 py-16">
+    <h2 class="text-2xl font-bold text-center mb-2">"Why not just use Luxon, date-fns, or Temporal?"</h2>
+    <p class="text-slate-400 text-center mb-10 text-sm max-w-2xl mx-auto">Timezone libraries are excellent at what they do &mdash; formatting and conversion. ChronoShield is a different layer: an explicit, machine-readable answer to <em class="text-slate-300">"is this local time safe to act on?"</em> &mdash; before your app stores it, schedules it, bills it, or hands it to an AI agent.</p>
+    <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/30">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-slate-800">
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">What you need</th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-slate-400">Timezone library<br><span class="text-[10px] text-slate-600 font-normal">Luxon, date-fns-tz, Temporal, pytz, zoneinfo</span></th>
+            <th class="px-5 py-3 text-left text-xs font-semibold text-brand-300">ChronoShield API</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Format dates &amp; convert UTC&hairsp;↔&hairsp;local</td>
+            <td class="px-5 py-3.5 text-slate-400">Excellent. Use the library.</td>
+            <td class="px-5 py-3.5 text-slate-500 italic">Not the focus &mdash; defer to your library</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Detect when a local time <em>doesn't exist</em> (DST gap)</td>
+            <td class="px-5 py-3.5 text-slate-400">Indirect. Most libraries silently shift the time. You have to remember to call <code class="text-xs bg-slate-800 px-1 rounded">isValid()</code> + check <code class="text-xs bg-slate-800 px-1 rounded">fold</code>/resolver flags &mdash; and only some libraries expose this at all.</td>
+            <td class="px-5 py-3.5 text-emerald-300">Explicit. Returns <code class="text-xs bg-emerald-500/10 px-1 rounded">DST_GAP</code>.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Surface both candidate UTC instants on a fall-back overlap</td>
+            <td class="px-5 py-3.5 text-slate-400">Manual. You compute it yourself by querying twice with different folds.</td>
+            <td class="px-5 py-3.5 text-emerald-300">Returns <code class="text-xs bg-emerald-500/10 px-1 rounded">DST_OVERLAP</code> with both <code class="text-xs bg-slate-800 px-1 rounded">possible_instants</code>.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Machine-readable reason codes for app logic</td>
+            <td class="px-5 py-3.5 text-slate-400">No. You inspect strings or boolean flags and translate yourself.</td>
+            <td class="px-5 py-3.5 text-emerald-300">Built-in: <code class="text-xs bg-emerald-500/10 px-1 rounded">DST_GAP</code>, <code class="text-xs bg-emerald-500/10 px-1 rounded">DST_OVERLAP</code>, <code class="text-xs bg-emerald-500/10 px-1 rounded">INVALID_TIMEZONE</code>.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Suggested next valid time on a gap</td>
+            <td class="px-5 py-3.5 text-slate-400">No. Roll your own seek-forward logic.</td>
+            <td class="px-5 py-3.5 text-emerald-300">Returned in <code class="text-xs bg-slate-800 px-1 rounded">suggested_fixes</code>.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Stay current with the IANA tzdb</td>
+            <td class="px-5 py-3.5 text-slate-400">Tied to library release cadence. <code class="text-xs bg-slate-800 px-1 rounded">pytz</code> is famously stale. Even active libs lag tzdb releases by weeks.</td>
+            <td class="px-5 py-3.5 text-emerald-300">Live, monthly tzdb refresh &mdash; <a href="/v1/datetime/version" class="text-brand-400 hover:underline">currently <code class="text-xs">2026b</code></a>.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">Polyglot stacks &mdash; same logic across Node, Python, Go, etc.</td>
+            <td class="px-5 py-3.5 text-slate-400">Re-implement the policy in each language's library, with subtly different defaults.</td>
+            <td class="px-5 py-3.5 text-emerald-300">One REST API. Identical reason codes from any stack.</td>
+          </tr>
+          <tr class="border-t border-slate-800/60">
+            <td class="px-5 py-3.5 text-slate-300">AI agent / tool-calling integration</td>
+            <td class="px-5 py-3.5 text-slate-400">Roll your own tool definitions. Maintain forever.</td>
+            <td class="px-5 py-3.5 text-emerald-300">OpenAI, Claude, LangChain, Vercel AI SDK schemas + a published <a href="/docs/ai-agents" class="text-brand-400 hover:underline">MCP server</a>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-500 text-center mt-6 max-w-2xl mx-auto">
+      Short version: keep your timezone library for what it's good at. Use ChronoShield as a thin <em class="text-slate-300">preflight check</em> at the boundary where user-entered local time becomes a stored instant, a scheduled job, or an AI agent action.
+    </p>
+  </section>
+
   <!-- ─── WHO NEEDS THIS ─── -->
   <section class="max-w-4xl mx-auto px-6 py-16">
     <h2 class="text-2xl font-bold text-center mb-2">Built for systems where time matters</h2>
@@ -460,11 +522,11 @@ result = cg.validate(
         <div class="text-xs text-slate-500 mt-1">IANA timezones</div>
         <div class="text-[10px] text-slate-600 mt-0.5">Every offset, every DST regime. No hardcoded whitelist.</div>
       </div>
-      <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
-        <div class="text-2xl font-extrabold text-white">78</div>
-        <div class="text-xs text-slate-500 mt-1">tests passing</div>
+      <a href="/correctness" class="block rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center hover:border-brand-500/40 hover:bg-slate-900/60 transition-colors group">
+        <div class="text-2xl font-extrabold text-white">165</div>
+        <div class="text-xs text-slate-500 mt-1">tests passing <span class="text-brand-400 group-hover:translate-x-0.5 inline-block transition-transform">&rarr;</span></div>
         <div class="text-[10px] text-slate-600 mt-0.5">Lord Howe, Chatham, Nepal, Samoa, Tehran, Casablanca, Fiji, Santiago, Vancouver &amp; more</div>
-      </div>
+      </a>
       <div class="rounded-lg border border-slate-800 bg-slate-900/30 p-4 text-center">
         <div class="text-2xl font-extrabold text-white">&lt;50ms</div>
         <div class="text-xs text-slate-500 mt-1">p95 latency</div>

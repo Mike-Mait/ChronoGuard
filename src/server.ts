@@ -36,7 +36,7 @@ const app = Fastify({
 });
 
 // Paths that skip API key auth
-const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription", "/llms.txt", "/agent-tools.json"];
+const publicPaths = ["/health", "/status", "/v1/datetime/version", "/docs", "/api/keys", "/api/webhooks", "/api/contact", "/api/billing", "/docs/playground", "/terms", "/privacy", "/aup", "/.well-known", "/favicon", "/logo", "/reset-key", "/manage-subscription", "/llms.txt", "/agent-tools.json", "/correctness"];
 
 // API key auth hook
 app.addHook("onRequest", async (request, reply) => {
@@ -318,7 +318,7 @@ async function start() {
 
   // Pre-load static HTML files into memory
   const htmlCache: Record<string, string> = {};
-  for (const page of ["index", "docs", "ai-agents", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
+  for (const page of ["index", "docs", "ai-agents", "correctness", "terms", "privacy", "aup", "reset-key", "manage-subscription"]) {
     htmlCache[page] = fs.readFileSync(path.join(__dirname, "public", `${page}.html`), "utf-8");
   }
 
@@ -385,6 +385,13 @@ async function start() {
   // distinct audience — agent developers, not REST API integrators).
   app.get("/docs/ai-agents", { schema: { hide: true } }, async (_request, reply) => {
     return reply.type("text/html").send(htmlCache["ai-agents"]);
+  });
+
+  // Public edge-case test surface page. Top-level URL (not /docs/*) because
+  // it's a credibility/sales asset for cold-pitched evaluators, not internal
+  // developer documentation — and shorter URLs get shared more.
+  app.get("/correctness", { schema: { hide: true } }, async (_request, reply) => {
+    return reply.type("text/html").send(htmlCache.correctness);
   });
 
   // Terms of Service

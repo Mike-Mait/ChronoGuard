@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChronoShield API &mdash; Correctness &amp; Edge Cases</title>
+  <meta name="description" content="The exact timezone edge cases ChronoShield is tested against — DST gaps, overlaps, non-hour offsets, Ramadan-linked transitions, the date line, and a parity sweep against Luxon across every IANA zone." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eef6ff',100:'#d9eaff',200:'#bcdaff',300:'#8ec2ff',400:'#59a0ff',500:'#3378ff',600:'#1b57f5',700:'#1543e1',800:'#1837b6',900:'#1a328f',950:'#141f57' },
+          },
+        },
+      },
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family:'Inter',system-ui,sans-serif; }
+    code, pre { font-family:'JetBrains Mono',monospace; }
+    .sidebar-link { transition: color .15s, border-color .15s; }
+    .sidebar-link:hover, .sidebar-link.active { color: #8ec2ff; border-left-color: #3378ff; }
+    pre { overflow-x: auto; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    :target { scroll-margin-top: 5rem; }
+  </style>
+</head>
+<body class="bg-brand-950 text-slate-300 antialiased">
+
+  <!-- ─── TOP BAR ─── -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-brand-950/90 backdrop-blur-md border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 16v16c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V16L32 4z" fill="url(#sg)" stroke="url(#ss)" stroke-width="2"/>
+          <circle cx="32" cy="32" r="13" fill="#0f172a" stroke="#8ec2ff" stroke-width="1.5" opacity=".9"/>
+          <line x1="32" y1="21" x2="32" y2="23" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="41" x2="32" y2="43" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="21" y1="32" x2="23" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="41" y1="32" x2="43" y2="32" stroke="#8ec2ff" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="32" y2="25" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="32" y1="32" x2="38" y2="28" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="32" cy="32" r="1.5" fill="white"/>
+          <defs>
+            <linearGradient id="sg" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff" stop-opacity=".15"/><stop offset="1" stop-color="#8ec2ff" stop-opacity=".05"/></linearGradient>
+            <linearGradient id="ss" x1="8" y1="4" x2="56" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#3378ff"/><stop offset="1" stop-color="#8ec2ff"/></linearGradient>
+          </defs>
+        </svg>
+        <span class="text-sm font-bold text-white">Chrono<span class="text-brand-400">Shield</span> <span class="text-brand-300 text-xs font-semibold">API</span></span>
+        <span class="text-xs text-slate-600 ml-1">Correctness</span>
+      </a>
+      <div class="flex items-center gap-5 text-xs">
+        <a href="/docs" class="text-slate-500 hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/docs/ai-agents" class="text-slate-500 hover:text-slate-300 transition-colors">AI Agents</a>
+        <a href="/docs/playground" class="text-slate-500 hover:text-slate-300 transition-colors">Playground</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-7xl mx-auto pt-14">
+
+    <!-- ─── SIDEBAR ─── -->
+    <nav class="hidden lg:block w-56 shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-slate-800/40 py-8 pl-6 pr-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3">Overview</p>
+      <a href="#why" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Why this page exists</a>
+      <a href="#summary" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Test surface summary</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">DST transitions</p>
+      <a href="#us-spring" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">US spring-forward</a>
+      <a href="#us-fall" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">US fall-back</a>
+      <a href="#eu-dst" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">EU transitions</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Unusual zones</p>
+      <a href="#lord-howe" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Lord Howe (30-min DST)</a>
+      <a href="#chatham" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Chatham (UTC+12:45)</a>
+      <a href="#nepal" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Nepal (UTC+5:45)</a>
+      <a href="#tehran" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Tehran (irregular DST)</a>
+      <a href="#casablanca" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Casablanca (Ramadan)</a>
+      <a href="#southern" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Southern hemisphere</a>
+      <a href="#dateline" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Date line / extreme</a>
+
+      <p class="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 mt-6">Methodology</p>
+      <a href="#parity" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Luxon parity sweep</a>
+      <a href="#fuzz" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Transition-boundary fuzz</a>
+      <a href="#cadence" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">tzdb update cadence</a>
+      <a href="#suggest" class="sidebar-link block py-1.5 text-sm border-l-2 border-transparent pl-3 text-slate-500">Submit an edge case</a>
+    </nav>
+
+    <!-- ─── MAIN CONTENT ─── -->
+    <main class="flex-1 min-w-0 px-6 lg:px-12 py-10">
+
+      <!-- HERO -->
+      <section id="why" class="mb-12">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold mb-4">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          Tested in CI on every commit
+        </div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Timezone correctness, by region</h1>
+        <p class="mt-4 text-base text-slate-300 leading-relaxed max-w-3xl">
+          ChronoShield is a correctness engine, not a wrapper around a date library. This page lists the specific edge cases the API is tested against &mdash; the exact bugs that catch most timezone code, the unusual zones that get forgotten, and the parity work that keeps the bundled tzdata aligned with the Luxon reference implementation.
+        </p>
+        <p class="mt-3 text-sm text-slate-400 leading-relaxed max-w-3xl">
+          All examples below correspond to actual tests in <a href="https://github.com/Mike-Mait/ChronoShield-API/tree/master/tests" class="text-brand-400 hover:underline">the public test suite</a>. Run them yourself: <code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">git clone</code> &rarr; <code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">npm test</code>.
+        </p>
+      </section>
+
+      <!-- SUMMARY -->
+      <section id="summary" class="mb-16">
+        <div class="grid sm:grid-cols-3 gap-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="text-2xl font-bold text-white">165</div>
+            <div class="text-xs text-slate-500 mt-1">unit + integration tests</div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="text-2xl font-bold text-white">~3,500+</div>
+            <div class="text-xs text-slate-500 mt-1">zone&times;timestamp parity checks per CI run, vs Luxon reference</div>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+            <div class="text-2xl font-bold text-white">9+</div>
+            <div class="text-xs text-slate-500 mt-1">unusual DST regimes covered explicitly (Lord Howe, Chatham, Nepal, etc.)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── US SPRING-FORWARD ─── -->
+      <section id="us-spring" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">US spring-forward gap</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">On the second Sunday of March, US clocks jump from 02:00 to 03:00. Anything in <code class="text-xs bg-slate-800 px-1 rounded">[02:00, 03:00)</code> simply doesn't exist that day. ChronoShield returns <code class="text-xs bg-emerald-500/10 px-1 rounded">DST_GAP</code> instead of silently shifting.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">tested scenario</span>
+          </div>
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// 2026-03-08 02:30 in America/New_York &mdash; the gap
+validateDateTime("2026-03-08T02:30:00", "America/New_York")
+// &rarr; { status: "invalid", reason_code: "DST_GAP" }
+
+// 2026-03-08 02:00 &mdash; the exact gap boundary
+validateDateTime("2026-03-08T02:00:00", "America/New_York")
+// &rarr; DST_GAP (start of skipped hour)
+
+// 2026-03-08 01:59:59 &mdash; just before, valid
+// 2026-03-08 03:00:00 &mdash; just after, valid</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── US FALL-BACK ─── -->
+      <section id="us-fall" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">US fall-back overlap</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">On the first Sunday of November, US clocks fall back from 02:00 to 01:00. Anything in <code class="text-xs bg-slate-800 px-1 rounded">[01:00, 02:00)</code> happens <strong class="text-white">twice</strong>. ChronoShield returns <code class="text-xs bg-amber-500/10 px-1 rounded">DST_OVERLAP</code> with both candidate UTC instants &mdash; the caller decides which one the user meant.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// 2026-11-01 01:30 in America/New_York &mdash; the overlap
+validateDateTime("2026-11-01T01:30:00", "America/New_York")
+// &rarr; {
+//     status: "ambiguous",
+//     reason_code: "DST_OVERLAP",
+//     possible_instants: [
+//       { offset: "-04:00", instant_utc: "2026-11-01T05:30:00.000Z" },
+//       { offset: "-05:00", instant_utc: "2026-11-01T06:30:00.000Z" }
+//     ]
+//   }
+
+// Same time, but resolve with explicit policy:
+resolveDateTime(..., { ambiguous: "earlier" })  // first occurrence
+resolveDateTime(..., { ambiguous: "later" })    // second occurrence
+resolveDateTime(..., { ambiguous: "reject" })   // 400 with code DST_OVERLAP</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── EU DST ─── -->
+      <section id="eu-dst" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">EU transitions (last Sunday of March / October)</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Europe shifts on different dates from the US, which is exactly the trap distributed teams hit when they assume "DST is universal." ChronoShield tests Europe/London (last Sunday in March) explicitly, plus Europe/Berlin scenarios via the parity sweep.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// 2026-03-29 01:30 in Europe/London &mdash; spring-forward gap
+validateDateTime("2026-03-29T01:30:00", "Europe/London")
+// &rarr; DST_GAP (London goes 01:00 &rarr; 02:00, skipping the 01:00&ndash;02:00 hour)</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── LORD HOWE ─── -->
+      <section id="lord-howe" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Australia/Lord_Howe &mdash; 30-minute DST shift</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Lord Howe Island is the only timezone in the world that shifts by <strong class="text-white">30 minutes</strong> for DST instead of an hour: UTC+10:30 standard, UTC+11:00 DST. Most "shift by an hour" assumptions in scheduling code are silently wrong here.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// 2026-10-04 02:15 (first Sunday in October) &mdash; clocks jump 02:00 &rarr; 02:30
+validateDateTime("2026-10-04T02:15:00", "Australia/Lord_Howe")
+// &rarr; DST_GAP (the skipped slot is 30 minutes wide, not 60)
+
+// 2026-04-05 01:45 &mdash; fall-back, clocks go 02:00 &rarr; 01:30
+validateDateTime("2026-04-05T01:45:00", "Australia/Lord_Howe")
+// &rarr; DST_OVERLAP (1:45 happens twice, 30-minute overlap window)</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── CHATHAM ─── -->
+      <section id="chatham" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Pacific/Chatham &mdash; UTC+12:45 with DST</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">The Chatham Islands sit at UTC+12:45 (standard) / UTC+13:45 (DST) &mdash; the most extreme non-hour offset on the planet. Date math that assumes hour-aligned offsets breaks here.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>convertTime("2026-06-15T00:00:00Z", "Pacific/Chatham")
+// Standard time (June, southern winter):
+// &rarr; { local_datetime: "2026-06-15T12:45:00", offset: "+12:45" }
+
+convertTime("2026-12-15T00:00:00Z", "Pacific/Chatham")
+// DST (December, southern summer):
+// &rarr; { local_datetime: "2026-12-15T13:45:00", offset: "+13:45" }</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── NEPAL ─── -->
+      <section id="nepal" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Asia/Kathmandu &mdash; UTC+5:45 (no DST, unusual offset)</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Nepal's offset is 45 minutes off the nearest hour boundary &mdash; year-round, no DST. ChronoShield's <code class="text-xs bg-slate-800 px-1 rounded">resolve</code> converts local Nepal time to UTC with the correct fractional offset.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>resolveDateTime("2026-06-15T12:00:00", "Asia/Kathmandu", ...)
+// &rarr; { instant_utc: "2026-06-15T06:15:00.000Z", offset: "+05:45" }
+// (Note the :15 minute offset, not :00)</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── TEHRAN ─── -->
+      <section id="tehran" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Asia/Tehran &mdash; Iran (irregular DST policy)</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Tehran sits at UTC+3:30, with DST rules that have changed multiple times by political decree. Most date libraries lag the Iranian government's announcements; ChronoShield refreshes monthly from the IANA tzdb.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>convertTime("2026-01-15T00:00:00Z", "Asia/Tehran")
+// &rarr; { local_datetime: "2026-01-15T03:30:00", offset: "+03:30" }</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── CASABLANCA ─── -->
+      <section id="casablanca" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Africa/Casablanca &mdash; Morocco's Ramadan-linked DST</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Morocco uses UTC+1 year-round since 2018 but <strong class="text-white">temporarily switches to UTC+0 during Ramadan</strong>, a religious-calendar-driven transition that doesn't fit any spring/fall pattern. ChronoShield validates both states correctly.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>validateDateTime("2026-07-15T12:00:00", "Africa/Casablanca")  // standard period
+// &rarr; valid
+
+// During Ramadan, the offset shifts. Tests verify both regimes hold.</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── SOUTHERN HEMISPHERE ─── -->
+      <section id="southern" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Southern hemisphere DST (Fiji, Santiago)</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">DST in the southern hemisphere happens on opposite dates from the north. Fiji and Santiago are tested explicitly because they're common business destinations where naive "DST starts in March" assumptions fail.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// Fiji: UTC+12, southern hemisphere
+convertTime("2026-06-15T00:00:00Z", "Pacific/Fiji")  // southern winter, no DST
+// &rarr; offset +12:00
+
+// Santiago: tested for the unique transition dates Chile uses
+resolveDateTime("2026-06-15T12:00:00", "America/Santiago", ...)
+// &rarr; correct UTC instant for southern winter</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── DATE LINE / EXTREME ─── -->
+      <section id="dateline" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">The international date line &amp; extreme zones</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Pacific/Apia (Samoa) famously skipped December 30, 2011 entirely when it jumped from UTC&minus;11 to UTC+13. Etc/GMT+12 is the most negative fixed offset. UTC itself is the no-op baseline that should always validate. All three are explicit tests.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>// Samoa &mdash; one of the most forward-shifted timezones
+convertTime("2026-06-15T00:00:00Z", "Pacific/Apia")
+// &rarr; { local_datetime: "2026-06-15T13:00:00", offset: "+13:00" }
+
+// Crossing the date line via Etc/GMT+12 (UTC&minus;12)
+convertTime("2026-06-15T00:00:00Z", "Etc/GMT+12")
+// &rarr; { local_datetime: "2026-06-14T12:00:00", offset: "-12:00" }
+// (Note: yesterday's date in local time)</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── PARITY SWEEP ─── -->
+      <section id="parity" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Bundled-tzdata parity sweep vs. Luxon</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">ChronoShield ships its own bundled IANA-zone implementation (decoupled from system ICU and from a fixed Luxon version) so deploys aren't gated on the host's tzdata. To prove the bundle stays correct, every CI run sweeps the offset for <strong class="text-white">every zone moment-timezone knows about</strong> at six representative timestamps and asserts byte-equality with Luxon's <code class="text-xs bg-slate-800 px-1 rounded">IANAZone</code>.</p>
+        <ul class="text-sm text-slate-400 space-y-2 list-disc list-inside ml-2">
+          <li>Sample timestamps include <strong class="text-white">2026 NY spring-forward and fall-back windows</strong>, summer 1985, end-of-2000, and 2035.</li>
+          <li>~600+ zones &times; 6 timestamps = ~3,500+ comparisons per run.</li>
+          <li>Any divergence fails the build with the exact zone, instant, and the two offsets that disagreed.</li>
+        </ul>
+      </section>
+
+      <!-- ─── FUZZ ─── -->
+      <section id="fuzz" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">Transition-boundary fuzz testing</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">Beyond the regular grid, a fuzz suite seeds random zone &times; timestamp pairs and probes around DST transitions specifically &mdash; the moments where bundled and reference implementations are most likely to drift on a tzdb update. Combined with the parity sweep, this catches subtle regressions before they reach the API.</p>
+      </section>
+
+      <!-- ─── CADENCE ─── -->
+      <section id="cadence" class="mb-12">
+        <h2 class="text-xl font-bold text-white mb-3">tzdb update cadence</h2>
+        <p class="text-sm text-slate-400 mb-5 max-w-3xl">ChronoShield tracks IANA tzdb releases <strong class="text-white">monthly</strong> &mdash; the same schedule as the upstream <a href="https://www.iana.org/time-zones" class="text-brand-400 hover:underline">tzdb release schedule</a>. The currently-served version is exposed at <a href="/v1/datetime/version" class="text-brand-400 hover:underline">/v1/datetime/version</a> in JSON, and a scheduled GitHub Action checks for new tzdb releases and opens a PR automatically.</p>
+        <div class="rounded-xl border border-slate-800 bg-slate-900 overflow-hidden">
+          <pre class="text-sm p-4 text-slate-300 leading-relaxed"><code>GET /v1/datetime/version
+&rarr; {
+    "tzdb_version": "2026b",
+    "tzdb_source": "moment-timezone",
+    "tzdb_source_version": "0.6.2",
+    "api_version": "1.3.0"
+  }</code></pre>
+        </div>
+      </section>
+
+      <!-- ─── SUBMIT EDGE CASE ─── -->
+      <section id="suggest" class="mb-12">
+        <div class="rounded-xl border border-brand-500/30 bg-brand-500/5 p-6">
+          <h2 class="text-xl font-bold text-white mb-2">Have an edge case we should test?</h2>
+          <p class="text-sm text-slate-400 mb-4 max-w-2xl">If your stack has hit a timezone bug we're not testing for &mdash; or you work in a region with an unusual DST policy &mdash; we want to add it. Open an issue on GitHub or email <a href="mailto:support@chronoshieldapi.com" class="text-brand-400 hover:underline">support@chronoshieldapi.com</a>. Real-world edge cases become permanent tests.</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <a href="https://github.com/Mike-Mait/ChronoShield-API/issues/new?title=Edge%20case%20suggestion%3A%20&labels=edge-case" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              Open a GitHub issue
+            </a>
+            <a href="https://github.com/Mike-Mait/ChronoShield-API/tree/master/tests" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-semibold transition-colors">
+              Browse the test suite
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="border-t border-slate-800/40 mt-16">
+    <div class="max-w-7xl mx-auto px-6 py-8 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-4">
+      <div>&copy; 2026 ChronoShield API. All rights reserved.</div>
+      <div class="flex items-center gap-5">
+        <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+        <a href="/docs" class="hover:text-slate-300 transition-colors">API Docs</a>
+        <a href="/docs/ai-agents" class="hover:text-slate-300 transition-colors">AI Agents</a>
+        <a href="/terms" class="hover:text-slate-300 transition-colors">Terms</a>
+        <a href="/privacy" class="hover:text-slate-300 transition-colors">Privacy</a>
+        <a href="https://github.com/Mike-Mait/ChronoShield-API" class="hover:text-slate-300 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ─── SIDEBAR ACTIVE STATE ─── -->
+  <script>
+    const sections = document.querySelectorAll('section[id]');
+    const links = document.querySelectorAll('.sidebar-link');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          links.forEach((link) => {
+            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+          });
+        }
+      });
+    }, { rootMargin: '-30% 0px -60% 0px' });
+    sections.forEach((s) => observer.observe(s));
+  </script>
+</body>
+</html>
